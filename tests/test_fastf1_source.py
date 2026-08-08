@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from f1pi.adapters import fastf1_client
+from f1pi.adapters.fastf1_client import FastF1Client
+from f1pi.domain import DatasetKind, LoadOptions, SessionKey
+from f1pi.exceptions import InvalidSessionError, UpstreamRateLimitError
+
+
+class FakeFastF1Session:
+    def __init__(self) -> None:
+        self.event = pd.Series(
+            {
+                "EventName": "Bahrain Grand Prix",
+                "RoundNumber": 1,
+                "Country": "Bahrain",
+                "Location": "Sakhir",
+            }
+        )
+        self.name = "Race"
+        self.date = pd.Timestamp("2022-03-20T15:00:00Z")
+        self.results = pd.DataFrame(
+            {"DriverNumber": ["16"], "Abbreviation": ["LEC"]}
+        )
+        self.laps = pd.DataFrame()
+        self.track_status = pd.DataFrame()
+        self.session_status = pd.DataFrame()
+        self.weather_data = pd.DataFrame()
+        self.race_control_messages = pd.DataFrame()
+        telemetry = pd.DataFrame({"Speed": [100.0]})
+        self.car_data = {"16": telemetry}
+        self.pos_data = {"16": pd.DataFrame({"X": [1.0]})}
+        self.load_options: dict[str, bool] = {}
+
+    def load(self, **options: bool) -> None:
+        self.load_options = options
+
+
+def test_client_returns_native_fastf1_session(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = FakeFastF1Session()
+    monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
+    monkeypatch.setattr(fastf1_client.fastf1.Cache, "enable_cache", lambda path: None)
+    client = FastF1Client(tmp_path / "cache")
+    loaded = client.load(
+        SessionKey(2022, "Bahrain", "R"),
+        LoadOptions(telemetry=False, weather=False, messages=False),
+    )
+    assert loaded is session
+    assert session.load_options == {
+        "laps": True,
+        "telemetry": False,
+        "weather": False,
+        "messages": False,
+    }
+
+
+def test_client_detaches_frames_for_ingestion(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = FakeFastF1Session()
+    monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
+    monkeypatch.setattr(fastf1_client.fastf1.Cache, "enable_cache", lambda path: None)
+    result = FastF1Client(tmp_path / "cache").fetch(
+        SessionKey(2022, "Bahrain", "R"), LoadOptions()
+    )
+    assert result.metadata.session_id == "2022-01-bahrain-r"
+    car = next(item for item in result.datasets if item.kind is DatasetKind.CAR_TELEMETRY)
+    assert car.partition == "LEC"
+    assert type(car.frame) is pd.DataFrame
+
+
+@pytest.mark.parametrize(
+    "upstream,expected",
+    [
+        (fastf1_client.RateLimitExceededError("slow down"), UpstreamRateLimitError),
+        (fastf1_client.FastF1InvalidSessionError("bad session"), InvalidSessionError),
+    ],
+)
+def test_adapter_maps_upstream_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    upstream: Exception,
+    expected: type[Exception],
+) -> None:
+    def fail(*args: object) -> None:
+        raise upstream
+
+    monkeypatch.setattr(fastf1_client.fastf1, "get_session", fail)
+    monkeypatch.setattr(fastf1_client.fastf1.Cache, "enable_cache", lambda path: None)
+    with pytest.raises(expected):
+        FastF1Client(tmp_path / "cache").load(SessionKey(2022, 1, "R"))

@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+import pandas as pd
+import pytest
+
+from f1pi.domain import DatasetKind, SessionMetadata, SourceSession
+from f1pi.exceptions import SchemaValidationError
+from f1pi.normalization import normalize_frame, normalize_session, snake_case
+
+
+def test_snake_case_handles_acronyms() -> None:
+    assert snake_case("DriverNumber") == "driver_number"
+    assert snake_case("nGear") == "n_gear"
+    assert snake_case("DRS") == "drs"
+
+
+def test_normalizes_and_validates_all_fixture_frames(source_session: SourceSession) -> None:
+    datasets = normalize_session(source_session.metadata, source_session.datasets)
+    assert datasets[0].kind is DatasetKind.SESSION
+    laps = next(item.frame for item in datasets if item.kind is DatasetKind.LAPS)
+    telemetry = next(item.frame for item in datasets if item.kind is DatasetKind.CAR_TELEMETRY)
+    assert str(laps["lap_time_ns"].dtype) == "Int64"
+    assert str(laps["fresh_tyre"].dtype) == "boolean"
+    assert "date_utc_ns" in telemetry
+    assert telemetry["driver"].unique().tolist() == ["LEC"]
+    assert telemetry["throttle_raw"].tolist() == [0.0, 104.0]
+    assert telemetry["throttle"].iloc[0] == 0.0
+    assert pd.isna(telemetry["throttle"].iloc[1])
+
+
+def test_validation_reports_missing_columns(metadata: SessionMetadata) -> None:
+    with pytest.raises(SchemaValidationError, match="laps failed schema validation"):
+        normalize_frame(DatasetKind.LAPS, pd.DataFrame({"Driver": ["LEC"]}), metadata)
+
+
+def test_validation_rejects_invalid_telemetry_range(metadata: SessionMetadata) -> None:
+    frame = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2022-03-20T15:00:00Z"]),
+            "SessionTime": pd.to_timedelta([0], unit="s"),
+            "Speed": [-1.0],
+            "RPM": [1000.0],
+            "nGear": [1.0],
+            "Throttle": [120.0],
+            "Brake": [False],
+            "DRS": [0.0],
+        }
+    )
+    with pytest.raises(SchemaValidationError, match="car_telemetry"):
+        normalize_frame(DatasetKind.CAR_TELEMETRY, frame, metadata, "LEC")
