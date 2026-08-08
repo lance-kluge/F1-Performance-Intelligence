@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime
+
+import pandas as pd
+import pytest
+
+from f1pi.domain import (
+    DatasetKind,
+    SessionMetadata,
+    SessionType,
+    SourceDataset,
+    SourceSession,
+)
+
+
+@pytest.fixture
+def metadata() -> SessionMetadata:
+    return SessionMetadata(
+        session_id="2022-01-bahrain-r",
+        year=2022,
+        round_number=1,
+        event_name="Bahrain Grand Prix",
+        country="Bahrain",
+        location="Sakhir",
+        session_type=SessionType.RACE,
+        session_name="Race",
+        session_date_utc=datetime(2022, 3, 20, 15, tzinfo=UTC),
+        fastf1_version="3.8.3",
+    )
+
+
+@pytest.fixture
+def source_session(metadata: SessionMetadata) -> SourceSession:
+    date = pd.to_datetime(["2022-03-20T15:00:00Z", "2022-03-20T15:00:01Z"])
+    datasets = (
+        SourceDataset(
+            DatasetKind.RESULTS,
+            pd.DataFrame(
+                {
+                    "DriverNumber": ["16", "55"],
+                    "Abbreviation": ["LEC", "SAI"],
+                    "FullName": ["Charles Leclerc", "Carlos Sainz"],
+                    "TeamName": ["Ferrari", "Ferrari"],
+                    "Position": [1.0, 2.0],
+                    "Status": ["Finished", "Finished"],
+                }
+            ),
+        ),
+        SourceDataset(
+            DatasetKind.LAPS,
+            pd.DataFrame(
+                {
+                    "Driver": ["LEC", "LEC"],
+                    "DriverNumber": ["16", "16"],
+                    "LapNumber": [1.0, 2.0],
+                    "LapTime": pd.to_timedelta([95.1, 94.8], unit="s"),
+                    "Stint": [1.0, 1.0],
+                    "Compound": ["SOFT", "SOFT"],
+                    "TyreLife": [1.0, 2.0],
+                    "FreshTyre": [True, True],
+                    "IsAccurate": [True, True],
+                }
+            ),
+        ),
+        SourceDataset(
+            DatasetKind.WEATHER,
+            pd.DataFrame(
+                {
+                    "Time": pd.to_timedelta([0, 60], unit="s"),
+                    "AirTemp": [24.0, 24.1],
+                    "TrackTemp": [31.0, 31.1],
+                    "Humidity": [48.0, 47.0],
+                    "Pressure": [1012.0, 1012.1],
+                    "Rainfall": [False, False],
+                    "WindDirection": [210.0, 212.0],
+                    "WindSpeed": [2.5, 2.6],
+                }
+            ),
+        ),
+        SourceDataset(
+            DatasetKind.CAR_TELEMETRY,
+            pd.DataFrame(
+                {
+                    "Date": date,
+                    "SessionTime": pd.to_timedelta([0, 1], unit="s"),
+                    "Speed": [0.0, 110.0],
+                    "RPM": [5000.0, 9000.0],
+                    "nGear": [1.0, 4.0],
+                    "Throttle": [0.0, 104.0],
+                    "Brake": [True, False],
+                    "DRS": [0.0, 0.0],
+                }
+            ),
+            "LEC",
+        ),
+        SourceDataset(
+            DatasetKind.POSITION,
+            pd.DataFrame(
+                {
+                    "Date": date,
+                    "SessionTime": pd.to_timedelta([0, 1], unit="s"),
+                    "X": [1.0, 2.0],
+                    "Y": [3.0, 4.0],
+                    "Z": [0.0, 0.0],
+                    "Status": ["OnTrack", "OnTrack"],
+                }
+            ),
+            "LEC",
+        ),
+        SourceDataset(
+            DatasetKind.TRACK_STATUS,
+            pd.DataFrame(
+                {
+                    "Time": pd.to_timedelta([0], unit="s"),
+                    "Status": ["1"],
+                    "Message": ["AllClear"],
+                }
+            ),
+        ),
+        SourceDataset(
+            DatasetKind.SESSION_STATUS,
+            pd.DataFrame(
+                {"Time": pd.to_timedelta([0], unit="s"), "Status": ["Started"]}
+            ),
+        ),
+        SourceDataset(
+            DatasetKind.RACE_CONTROL,
+            pd.DataFrame({"Message": ["GREEN LIGHT - PIT EXIT OPEN"]}),
+        ),
+    )
+    return SourceSession(metadata=metadata, datasets=datasets)
