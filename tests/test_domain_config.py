@@ -21,7 +21,12 @@ def test_session_key_accepts_inaugural_championship_year() -> None:
     assert SessionKey(1950, 1, "R").year == 1950
 
 
-@pytest.mark.parametrize("year,event", [(1949, 1), (2022, 0), (2022, "  ")])
+def test_session_key_rejects_zero_based_round_number() -> None:
+    with pytest.raises(ValueError, match="round number must be 1 or greater"):
+        SessionKey(2022, 0, "R")
+
+
+@pytest.mark.parametrize("year,event", [(1949, 1), (2022, "  ")])
 def test_session_key_rejects_invalid_values(year: int, event: int | str) -> None:
     with pytest.raises(ValueError):
         SessionKey(year, event, "R")

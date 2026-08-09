@@ -12,6 +12,7 @@ from typing import Any
 import pandas as pd
 
 FIRST_CHAMPIONSHIP_YEAR = 1950
+FIRST_ROUND_NUMBER = 1
 
 
 class SessionType(StrEnum):
@@ -51,8 +52,10 @@ class SessionKey:
         if year < FIRST_CHAMPIONSHIP_YEAR:
             raise ValueError(f"year must be {FIRST_CHAMPIONSHIP_YEAR} or later")
         if isinstance(event, int):
-            if event <= 0:
-                raise ValueError("event round number must be positive")
+            if event < FIRST_ROUND_NUMBER:
+                raise ValueError(
+                    f"event round number must be {FIRST_ROUND_NUMBER} or greater"
+                )
         elif not event.strip():
             raise ValueError("event name must not be empty")
         object.__setattr__(self, "year", year)
