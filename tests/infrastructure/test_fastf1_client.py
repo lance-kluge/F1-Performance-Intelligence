@@ -6,10 +6,10 @@ import pandas as pd
 import pytest
 from fastf1.core import Laps
 
-from f1pi.adapters import fastf1_client
-from f1pi.adapters.fastf1_client import FastF1Client
-from f1pi.domain import DatasetKind, LoadOptions, SessionKey
-from f1pi.exceptions import InvalidSessionError, UpstreamRateLimitError
+from f1pi.domain.exceptions import InvalidSessionError, UpstreamRateLimitError
+from f1pi.domain.models import DatasetKind, LoadOptions, SessionKey
+from f1pi.infrastructure import fastf1_client
+from f1pi.infrastructure.fastf1_client import FastF1Client
 
 
 class FakeFastF1Session:

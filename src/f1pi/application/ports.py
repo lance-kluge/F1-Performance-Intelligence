@@ -8,7 +8,7 @@ from typing import Protocol
 
 import pandas as pd
 
-from f1pi.domain import (
+from f1pi.domain.models import (
     Artifact,
     CatalogSession,
     LoadOptions,

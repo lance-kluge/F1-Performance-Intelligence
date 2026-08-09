@@ -6,7 +6,7 @@ import pytest
 
 from f1pi.composition import build_platform
 from f1pi.config import PlatformSettings
-from f1pi.domain import DatasetKind, LoadOptions, SessionKey
+from f1pi.domain.models import DatasetKind, LoadOptions, SessionKey
 
 
 @pytest.mark.live

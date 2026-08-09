@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from f1pi.adapters.fastf1_client import FastF1Client
-from f1pi.adapters.parquet_store import ParquetDatasetStore
-from f1pi.adapters.sqlite_catalog import SQLiteCatalog
+from f1pi.application.ingestion import IngestionService
+from f1pi.application.repository import SessionRepository
 from f1pi.config import PlatformSettings
-from f1pi.ingestion import IngestionService
-from f1pi.logging import configure_logging
-from f1pi.repository import SessionRepository
+from f1pi.infrastructure.fastf1_client import FastF1Client
+from f1pi.infrastructure.logging import configure_logging
+from f1pi.infrastructure.parquet_store import ParquetDatasetStore
+from f1pi.infrastructure.sqlite_catalog import SQLiteCatalog
 
 
 @dataclass(frozen=True, slots=True)

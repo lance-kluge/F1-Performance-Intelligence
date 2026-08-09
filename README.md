@@ -93,7 +93,7 @@ pytest
 The network acceptance test is intentionally excluded from normal CI:
 
 ```bash
-pytest -m live tests/test_live_bahrain.py --no-cov
+pytest -m live tests/integration/test_live_bahrain.py --no-cov
 ```
 
 It ingests the 2022 Bahrain Grand Prix Race, verifies Charles Leclerc as the winner, reads all

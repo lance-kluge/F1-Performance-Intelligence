@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 from time import monotonic
 
-from f1pi.domain import IngestionResult, LoadOptions, SessionKey
-from f1pi.logging import log_event
-from f1pi.normalization import normalize_session
-from f1pi.ports import Catalog, DatasetStore, SessionSource
-from f1pi.schemas import SCHEMA_VERSION
+from f1pi.application.ports import Catalog, DatasetStore, SessionSource
+from f1pi.domain.models import IngestionResult, LoadOptions, SessionKey
+from f1pi.infrastructure.logging import log_event
+from f1pi.processing.normalization import normalize_session
+from f1pi.processing.schemas import SCHEMA_VERSION
 
 
 class IngestionService:

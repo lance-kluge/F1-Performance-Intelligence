@@ -9,7 +9,8 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from f1pi.domain import (
+from f1pi.domain.exceptions import StorageError
+from f1pi.domain.models import (
     Artifact,
     CatalogSession,
     DatasetKind,
@@ -17,7 +18,6 @@ from f1pi.domain import (
     SessionMetadata,
     SessionType,
 )
-from f1pi.exceptions import StorageError
 
 
 class SQLiteCatalog:

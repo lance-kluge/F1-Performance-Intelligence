@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pandas as pd
 import pytest
 
-from f1pi.domain import (
+from f1pi.domain.models import (
     DatasetKind,
     SessionMetadata,
     SessionType,

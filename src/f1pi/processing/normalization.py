@@ -8,8 +8,8 @@ from collections.abc import Sequence
 import pandas as pd
 from pandas.api import types as ptypes
 
-from f1pi.domain import DatasetKind, SessionMetadata, SourceDataset, metadata_record
-from f1pi.schemas import validate_frame
+from f1pi.domain.models import DatasetKind, SessionMetadata, SourceDataset, metadata_record
+from f1pi.processing.schemas import validate_frame
 
 _STRING_COLUMNS = {
     "session_id",

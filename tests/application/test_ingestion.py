@@ -8,12 +8,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from f1pi.adapters.parquet_store import ParquetDatasetStore
-from f1pi.adapters.sqlite_catalog import SQLiteCatalog
-from f1pi.domain import DatasetKind, LoadOptions, SessionKey, SourceDataset, SourceSession
-from f1pi.exceptions import SchemaValidationError, StorageError
-from f1pi.ingestion import IngestionService
-from f1pi.repository import SessionRepository
+from f1pi.application.ingestion import IngestionService
+from f1pi.application.repository import SessionRepository
+from f1pi.domain.exceptions import SchemaValidationError, StorageError
+from f1pi.domain.models import DatasetKind, LoadOptions, SessionKey, SourceDataset, SourceSession
+from f1pi.infrastructure.parquet_store import ParquetDatasetStore
+from f1pi.infrastructure.sqlite_catalog import SQLiteCatalog
 
 
 class FakeSource:
@@ -152,7 +152,10 @@ def test_ingestion_refreshes_snapshot_from_previous_schema_version(
     key = SessionKey(2022, "Bahrain", "R")
 
     first = service.ingest(key)
-    monkeypatch.setattr("f1pi.ingestion.SCHEMA_VERSION", source_session.metadata.schema_version + 1)
+    monkeypatch.setattr(
+        "f1pi.application.ingestion.SCHEMA_VERSION",
+        source_session.metadata.schema_version + 1,
+    )
     refreshed = service.ingest(key)
 
     assert not first.snapshot_reused

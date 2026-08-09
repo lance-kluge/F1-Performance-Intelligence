@@ -6,8 +6,8 @@ import pandas as pd
 import pandera.pandas as pa
 from pandera.typing import Series
 
-from f1pi.domain import DatasetKind
-from f1pi.exceptions import SchemaValidationError
+from f1pi.domain.exceptions import SchemaValidationError
+from f1pi.domain.models import DatasetKind
 
 SCHEMA_VERSION = 1
 

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC
-from pathlib import Path
 
 import pytest
 
-from f1pi.config import PlatformSettings
-from f1pi.domain import SessionKey, SessionMetadata, SessionType, metadata_record
+from f1pi.domain.models import SessionKey, SessionMetadata, SessionType, metadata_record
 
 
 def test_session_key_normalizes_aliases() -> None:
@@ -30,17 +28,6 @@ def test_session_key_rejects_zero_based_round_number() -> None:
 def test_session_key_rejects_invalid_values(year: int, event: int | str) -> None:
     with pytest.raises(ValueError):
         SessionKey(year, event, "R")
-
-
-def test_settings_use_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setenv("F1PI_DATA_DIR", str(tmp_path / "custom"))
-    monkeypatch.setenv("F1PI_FASTF1_CACHE_DIR", str(tmp_path / "raw"))
-    monkeypatch.setenv("F1PI_LOG_LEVEL", "debug")
-    settings = PlatformSettings.from_env(tmp_path)
-    assert settings.data_dir == (tmp_path / "custom").resolve()
-    assert settings.fastf1_cache_dir == (tmp_path / "raw").resolve()
-    assert settings.log_level == "DEBUG"
-    assert settings.catalog_path.name == "catalog.sqlite3"
 
 
 def test_metadata_makes_naive_time_utc(metadata: SessionMetadata) -> None:

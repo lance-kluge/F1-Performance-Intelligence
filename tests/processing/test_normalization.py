@@ -3,9 +3,9 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from f1pi.domain import DatasetKind, SessionMetadata, SourceSession
-from f1pi.exceptions import SchemaValidationError
-from f1pi.normalization import normalize_frame, normalize_session, snake_case
+from f1pi.domain.exceptions import SchemaValidationError
+from f1pi.domain.models import DatasetKind, SessionMetadata, SourceSession
+from f1pi.processing.normalization import normalize_frame, normalize_session, snake_case
 
 
 def test_snake_case_handles_acronyms() -> None:

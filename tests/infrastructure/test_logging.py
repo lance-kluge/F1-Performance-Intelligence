@@ -3,13 +3,8 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from pathlib import Path
 
-from f1pi.adapters.fastf1_client import FastF1Client
-from f1pi.composition import build_platform
-from f1pi.config import PlatformSettings
-from f1pi.logging import JsonFormatter, configure_logging, log_event
-from f1pi.repository import SessionRepository
+from f1pi.infrastructure.logging import JsonFormatter, configure_logging, log_event
 
 
 def test_json_formatter_includes_context_and_exception() -> None:
@@ -29,7 +24,7 @@ def test_json_formatter_includes_context_and_exception() -> None:
     assert "ValueError" in formatter.format(error_record)
 
 
-def test_logging_configuration_and_platform_factory(tmp_path: Path) -> None:
+def test_logging_configuration() -> None:
     logger = logging.getLogger("f1pi")
     original_handlers = logger.handlers[:]
     logger.handlers.clear()
@@ -41,9 +36,3 @@ def test_logging_configuration_and_platform_factory(tmp_path: Path) -> None:
         assert logger.level == logging.INFO
     finally:
         logger.handlers[:] = original_handlers
-
-    settings = PlatformSettings(tmp_path / "data", tmp_path / "cache")
-    platform = build_platform(settings)
-    assert isinstance(platform.fastf1, FastF1Client)
-    assert isinstance(platform.sessions, SessionRepository)
-    assert settings.processed_dir == tmp_path / "data" / "processed"

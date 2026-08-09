@@ -7,10 +7,20 @@ from typing import cast
 import pandas as pd
 from pandera.typing import DataFrame
 
-from f1pi.domain import Artifact, CatalogSession, DatasetKind, SessionKey, SessionMetadata
-from f1pi.exceptions import DatasetNotAvailableError, SessionNotInStoreError, StorageError
-from f1pi.ports import Catalog, DatasetReader
-from f1pi.schemas import (
+from f1pi.application.ports import Catalog, DatasetReader
+from f1pi.domain.exceptions import (
+    DatasetNotAvailableError,
+    SessionNotInStoreError,
+    StorageError,
+)
+from f1pi.domain.models import (
+    Artifact,
+    CatalogSession,
+    DatasetKind,
+    SessionKey,
+    SessionMetadata,
+)
+from f1pi.processing.schemas import (
     CarTelemetrySchema,
     LapsSchema,
     PositionSchema,

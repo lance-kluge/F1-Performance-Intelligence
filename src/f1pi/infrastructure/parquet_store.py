@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from f1pi.domain import Artifact, SessionMetadata, SourceDataset
-from f1pi.exceptions import StorageError
+from f1pi.domain.exceptions import StorageError
+from f1pi.domain.models import Artifact, SessionMetadata, SourceDataset
 
 
 class ParquetDatasetStore:

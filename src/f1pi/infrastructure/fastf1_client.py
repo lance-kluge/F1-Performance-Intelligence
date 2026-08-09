@@ -17,7 +17,12 @@ from fastf1.exceptions import (
     RateLimitExceededError,
 )
 
-from f1pi.domain import (
+from f1pi.domain.exceptions import (
+    InvalidSessionError,
+    UpstreamRateLimitError,
+    UpstreamUnavailableError,
+)
+from f1pi.domain.models import (
     DatasetKind,
     LoadOptions,
     SessionKey,
@@ -25,11 +30,6 @@ from f1pi.domain import (
     SessionType,
     SourceDataset,
     SourceSession,
-)
-from f1pi.exceptions import (
-    InvalidSessionError,
-    UpstreamRateLimitError,
-    UpstreamUnavailableError,
 )
 
 

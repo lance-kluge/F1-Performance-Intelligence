@@ -23,6 +23,22 @@ Caller
 Native FastF1 `Session`, `Laps`, `Lap`, and `Telemetry` objects are intentionally available
 through `platform.fastf1` for analysis and exploration.
 
+## Package layout
+
+```text
+src/f1pi/
+├── domain/          immutable models and application errors
+├── application/     use cases, repositories, and boundary protocols
+├── processing/      normalization and versioned dataset schemas
+├── infrastructure/  FastF1, Parquet, SQLite, and logging adapters
+├── config.py        environment-backed platform settings
+└── composition.py   concrete dependency wiring
+```
+
+The `tests/` tree mirrors these package boundaries. End-to-end checks that cross every layer
+live under `tests/integration/`. Future analysis, simulation, and interface packages can be
+added beside these layers without mixing their code into the ingestion foundation.
+
 The persistence path is separate: `FastF1Client.fetch` detaches plain pandas frames, which are
 normalized and validated by versioned Pandera models before storage. Stored datasets never retain
 a FastF1 session reference. The design avoids converting millions of telemetry rows into Python
