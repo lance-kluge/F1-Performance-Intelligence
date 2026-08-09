@@ -46,7 +46,7 @@ class ResultsSchema(_BaseSchema):
 class LapsSchema(_BaseSchema):
     driver: Series[str] = pa.Field(str_length={"min_value": 3, "max_value": 3})
     driver_number: Series[str]
-    lap_number: Series[float] = pa.Field(ge=1)
+    lap_number: Series[pd.Int64Dtype] = pa.Field(ge=1)
     lap_time_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True, gt=0)
     stint: Series[float] = pa.Field(nullable=True, ge=1)
     compound: Series[str] = pa.Field(nullable=True)

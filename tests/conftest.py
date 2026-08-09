@@ -54,7 +54,7 @@ def source_session(metadata: SessionMetadata) -> SourceSession:
                 {
                     "Driver": ["LEC", "LEC"],
                     "DriverNumber": ["16", "16"],
-                    "LapNumber": [1.0, 2.0],
+                    "LapNumber": [1, 2],
                     "LapTime": pd.to_timedelta([95.1, 94.8], unit="s"),
                     "Stint": [1.0, 1.0],
                     "Compound": ["SOFT", "SOFT"],
