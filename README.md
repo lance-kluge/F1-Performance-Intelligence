@@ -49,14 +49,26 @@ key = SessionKey(2022, "Bahrain", "R")
 result = platform.ingestion.ingest(key)
 race = platform.sessions.open(key)
 
-print(result.cache_hit)
+print(result.snapshot_reused)
 print(race.results().sort_values("position").head())
 print(race.car_telemetry("LEC").head())
 ```
 
 The first native or ingestion load can take several minutes because FastF1 retrieves and
 processes the session. FastF1's request cache accelerates later native loads. Repeated ingestion
-calls return the active normalized snapshot without invoking FastF1 at all.
+calls reuse the active normalized snapshot without invoking FastF1 at all.
+
+Snapshot and upstream refreshes are deliberately separate:
+
+```python
+from f1pi import LoadOptions
+
+# Re-normalize and republish using FastF1's cache where possible.
+platform.ingestion.ingest(key, LoadOptions(rebuild_snapshot=True))
+
+# Also tell FastF1 to ignore and renew its cached upstream data.
+platform.ingestion.ingest(key, LoadOptions(refresh_upstream=True))
+```
 
 ## Configuration
 
@@ -85,7 +97,7 @@ pytest -m live tests/test_live_bahrain.py --no-cov
 ```
 
 It ingests the 2022 Bahrain Grand Prix Race, verifies Charles Leclerc as the winner, reads all
-core datasets, demonstrates a local cache hit, and exercises a forced refresh.
+core datasets, demonstrates snapshot reuse, and exercises an upstream refresh.
 
 See [architecture](docs/architecture.md) and [schema reference](docs/schemas.md) for the
 platform boundaries and normalized units.

@@ -38,8 +38,8 @@ def test_2022_bahrain_race_end_to_end(tmp_path: Path) -> None:
     assert not session.frame(DatasetKind.RACE_CONTROL).empty
 
     second = platform.ingestion.ingest(key)
-    assert second.cache_hit
+    assert second.snapshot_reused
     assert second.run_id == first.run_id
-    refreshed = platform.ingestion.ingest(key, LoadOptions(force=True))
-    assert not refreshed.cache_hit
+    refreshed = platform.ingestion.ingest(key, LoadOptions(refresh_upstream=True))
+    assert not refreshed.snapshot_reused
     assert refreshed.run_id != first.run_id

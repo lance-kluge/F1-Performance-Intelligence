@@ -19,9 +19,11 @@ class FakeSource:
     def __init__(self, session: SourceSession) -> None:
         self.session = session
         self.calls = 0
+        self.options: list[LoadOptions] = []
 
     def fetch(self, key: SessionKey, options: LoadOptions) -> SourceSession:
         self.calls += 1
+        self.options.append(options)
         excluded = set()
         if not options.telemetry:
             excluded.update({DatasetKind.CAR_TELEMETRY, DatasetKind.POSITION})
@@ -51,7 +53,7 @@ def build_service(tmp_path: Path, source: FakeSource) -> tuple[IngestionService,
     return IngestionService(source, store, catalog), SessionRepository(catalog, store)
 
 
-def test_ingestion_is_idempotent_and_force_refreshes(
+def test_ingestion_reuses_snapshot_and_can_rebuild_it(
     tmp_path: Path, source_session: SourceSession
 ) -> None:
     source = FakeSource(source_session)
@@ -60,15 +62,34 @@ def test_ingestion_is_idempotent_and_force_refreshes(
 
     first = service.ingest(key)
     second = service.ingest(key)
-    forced = service.ingest(key, LoadOptions(force=True))
+    rebuilt = service.ingest(key, LoadOptions(rebuild_snapshot=True))
 
-    assert not first.cache_hit
-    assert second.cache_hit
+    assert not first.snapshot_reused
+    assert second.snapshot_reused
     assert second.run_id == first.run_id
-    assert not forced.cache_hit
-    assert forced.run_id != first.run_id
+    assert not rebuilt.snapshot_reused
+    assert rebuilt.run_id != first.run_id
     assert source.calls == 2
-    assert repository.open(key).run_id == forced.run_id
+    assert source.options[-1].rebuild_snapshot
+    assert not source.options[-1].refresh_upstream
+    assert repository.open(key).run_id == rebuilt.run_id
+
+
+def test_refresh_upstream_also_bypasses_existing_snapshot(
+    tmp_path: Path, source_session: SourceSession
+) -> None:
+    source = FakeSource(source_session)
+    service, repository = build_service(tmp_path, source)
+    key = SessionKey(2022, "Bahrain", "R")
+
+    first = service.ingest(key)
+    refreshed = service.ingest(key, LoadOptions(refresh_upstream=True))
+
+    assert not refreshed.snapshot_reused
+    assert refreshed.run_id != first.run_id
+    assert source.calls == 2
+    assert source.options[-1].refresh_upstream
+    assert repository.open(key).run_id == refreshed.run_id
 
 
 @pytest.mark.parametrize(
@@ -94,13 +115,13 @@ def test_default_ingest_upgrades_partial_snapshot(
     upgraded = service.ingest(key)
     repeated_full = service.ingest(key)
 
-    assert not partial.cache_hit
-    assert repeated_partial.cache_hit
+    assert not partial.snapshot_reused
+    assert repeated_partial.snapshot_reused
     assert repeated_partial.run_id == partial.run_id
-    assert not upgraded.cache_hit
+    assert not upgraded.snapshot_reused
     assert upgraded.run_id != partial.run_id
     assert required_kind in {artifact.kind for artifact in upgraded.artifacts}
-    assert repeated_full.cache_hit
+    assert repeated_full.snapshot_reused
     assert repeated_full.run_id == upgraded.run_id
     assert source.calls == 2
 
@@ -117,7 +138,7 @@ def test_full_snapshot_satisfies_partial_request(
         key, LoadOptions(telemetry=False, weather=False, messages=False)
     )
 
-    assert partial.cache_hit
+    assert partial.snapshot_reused
     assert partial.run_id == full.run_id
     assert source.calls == 1
 
@@ -133,8 +154,8 @@ def test_ingestion_refreshes_snapshot_from_previous_schema_version(
     monkeypatch.setattr("f1pi.ingestion.SCHEMA_VERSION", source_session.metadata.schema_version + 1)
     refreshed = service.ingest(key)
 
-    assert not first.cache_hit
-    assert not refreshed.cache_hit
+    assert not first.snapshot_reused
+    assert not refreshed.snapshot_reused
     assert refreshed.run_id != first.run_id
     assert source.calls == 2
 

@@ -45,7 +45,12 @@ def test_client_returns_native_fastf1_session(
 ) -> None:
     session = FakeFastF1Session()
     monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
-    monkeypatch.setattr(fastf1_client.fastf1.Cache, "enable_cache", lambda path: None)
+    cache_options: dict[str, object] = {}
+
+    def enable_cache(path: str, **options: object) -> None:
+        cache_options.update({"path": path, **options})
+
+    monkeypatch.setattr(fastf1_client.fastf1.Cache, "enable_cache", enable_cache)
     client = FastF1Client(tmp_path / "cache")
     loaded = client.load(
         SessionKey(2022, "Bahrain", "R"),
@@ -58,6 +63,29 @@ def test_client_returns_native_fastf1_session(
         "weather": False,
         "messages": False,
     }
+    assert cache_options == {
+        "path": str(tmp_path / "cache"),
+        "force_renew": False,
+    }
+
+
+def test_client_can_force_fastf1_cache_renewal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = FakeFastF1Session()
+    cache_options: dict[str, object] = {}
+
+    def enable_cache(path: str, **options: object) -> None:
+        cache_options.update({"path": path, **options})
+
+    monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
+    monkeypatch.setattr(fastf1_client.fastf1.Cache, "enable_cache", enable_cache)
+
+    FastF1Client(tmp_path / "cache").load(
+        SessionKey(2022, "Bahrain", "R"), LoadOptions(refresh_upstream=True)
+    )
+
+    assert cache_options["force_renew"] is True
 
 
 def test_client_detaches_frames_for_ingestion(
@@ -65,7 +93,9 @@ def test_client_detaches_frames_for_ingestion(
 ) -> None:
     session = FakeFastF1Session()
     monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
-    monkeypatch.setattr(fastf1_client.fastf1.Cache, "enable_cache", lambda path: None)
+    monkeypatch.setattr(
+        fastf1_client.fastf1.Cache, "enable_cache", lambda path, **options: None
+    )
     result = FastF1Client(tmp_path / "cache").fetch(
         SessionKey(2022, "Bahrain", "R"), LoadOptions()
     )
@@ -92,6 +122,8 @@ def test_adapter_maps_upstream_errors(
         raise upstream
 
     monkeypatch.setattr(fastf1_client.fastf1, "get_session", fail)
-    monkeypatch.setattr(fastf1_client.fastf1.Cache, "enable_cache", lambda path: None)
+    monkeypatch.setattr(
+        fastf1_client.fastf1.Cache, "enable_cache", lambda path, **options: None
+    )
     with pytest.raises(expected):
         FastF1Client(tmp_path / "cache").load(SessionKey(2022, 1, "R"))

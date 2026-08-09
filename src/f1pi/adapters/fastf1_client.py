@@ -43,7 +43,9 @@ class FastF1Client:
         """Return a fully usable native :class:`fastf1.core.Session`."""
         options = options or LoadOptions()
         self._cache_dir.mkdir(parents=True, exist_ok=True)
-        fastf1.Cache.enable_cache(str(self._cache_dir))
+        fastf1.Cache.enable_cache(
+            str(self._cache_dir), force_renew=options.refresh_upstream
+        )
         try:
             session = fastf1.get_session(key.year, key.event, key.session_type.value)
             session.load(
@@ -144,4 +146,3 @@ def _canonical_session_id(
 ) -> str:
     event_slug = "-".join(part for part in event_name.lower().replace("grand prix", "").split())
     return f"{year}-{round_number:02d}-{event_slug}-{session_type.value.lower()}"
-

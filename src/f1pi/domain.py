@@ -87,7 +87,13 @@ class LoadOptions:
     telemetry: bool = True
     weather: bool = True
     messages: bool = True
-    force: bool = False
+    rebuild_snapshot: bool = False
+    refresh_upstream: bool = False
+
+    @property
+    def requires_ingestion(self) -> bool:
+        """Return whether an existing analytical snapshot must be bypassed."""
+        return self.rebuild_snapshot or self.refresh_upstream
 
     def required_dataset_kinds(self) -> frozenset[DatasetKind]:
         """Return the persisted datasets required to satisfy this load."""
@@ -160,7 +166,7 @@ class CatalogSession:
 class IngestionResult:
     session_id: str
     run_id: str
-    cache_hit: bool
+    snapshot_reused: bool
     artifacts: tuple[Artifact, ...]
 
 

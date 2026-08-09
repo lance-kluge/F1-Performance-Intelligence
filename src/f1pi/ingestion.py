@@ -24,7 +24,7 @@ class IngestionService:
     ) -> IngestionResult:
         options = options or LoadOptions()
         cached = self._catalog.find_session(key)
-        if cached is not None and not options.force:
+        if cached is not None and not options.requires_ingestion:
             artifacts = self._catalog.list_artifacts(cached.active_run_id)
             artifact_kinds = {artifact.kind for artifact in artifacts}
             has_required_datasets = options.required_dataset_kinds() <= artifact_kinds
@@ -38,15 +38,15 @@ class IngestionService:
                 log_event(
                     self._logger,
                     logging.INFO,
-                    "session cache hit",
+                    "session snapshot reused",
                     session_id=cached.metadata.session_id,
                     run_id=cached.active_run_id,
-                    cache_hit=True,
+                    snapshot_reused=True,
                 )
                 return IngestionResult(
                     session_id=cached.metadata.session_id,
                     run_id=cached.active_run_id,
-                    cache_hit=True,
+                    snapshot_reused=True,
                     artifacts=artifacts,
                 )
 
@@ -92,7 +92,7 @@ class IngestionService:
             "session ingestion succeeded",
             session_id=source_session.metadata.session_id,
             run_id=run_id,
-            cache_hit=False,
+            snapshot_reused=False,
             elapsed_seconds=round(monotonic() - started, 3),
             artifact_count=len(artifacts),
             row_count=sum(item.row_count for item in artifacts),
@@ -100,6 +100,6 @@ class IngestionService:
         return IngestionResult(
             session_id=source_session.metadata.session_id,
             run_id=run_id,
-            cache_hit=False,
+            snapshot_reused=False,
             artifacts=artifacts,
         )
