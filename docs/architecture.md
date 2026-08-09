@@ -21,8 +21,7 @@ Caller
 ```
 
 Native FastF1 `Session`, `Laps`, `Lap`, and `Telemetry` objects are intentionally available
-through `platform.fastf1` for analysis and exploration. This preserves FastF1's selection,
-telemetry, and circuit helpers without duplicating their object model.
+through `platform.fastf1` for analysis and exploration.
 
 The persistence path is separate: `FastF1Client.fetch` detaches plain pandas frames, which are
 normalized and validated by versioned Pandera models before storage. Stored datasets never retain
