@@ -43,7 +43,7 @@ def source_session(metadata: SessionMetadata) -> SourceSession:
                     "FullName": ["Charles Leclerc", "Carlos Sainz"],
                     "TeamName": ["Ferrari", "Ferrari"],
                     "Position": [1, 2],
-                    "GridPosition": [1.0, 3.0],
+                    "GridPosition": [1, 3],
                     "Status": ["Finished", "Finished"],
                 }
             ),
@@ -56,7 +56,7 @@ def source_session(metadata: SessionMetadata) -> SourceSession:
                     "DriverNumber": ["16", "16"],
                     "LapNumber": [1, 2],
                     "LapTime": pd.to_timedelta([95.1, 94.8], unit="s"),
-                    "Stint": [1.0, 1.0],
+                    "Stint": [1, 1],
                     "Compound": ["SOFT", "SOFT"],
                     "TyreLife": [1.0, 2.0],
                     "FreshTyre": [True, True],
@@ -74,7 +74,7 @@ def source_session(metadata: SessionMetadata) -> SourceSession:
                     "Humidity": [48.0, 47.0],
                     "Pressure": [1012.0, 1012.1],
                     "Rainfall": [False, False],
-                    "WindDirection": [210.0, 212.0],
+                    "WindDirection": [210, 212],
                     "WindSpeed": [2.5, 2.6],
                 }
             ),
@@ -85,12 +85,12 @@ def source_session(metadata: SessionMetadata) -> SourceSession:
                 {
                     "Date": date,
                     "SessionTime": pd.to_timedelta([0, 1], unit="s"),
-                    "Speed": [0.0, 110.0],
-                    "RPM": [5000.0, 9000.0],
-                    "nGear": [1.0, 4.0],
-                    "Throttle": [0.0, 104.0],
+                    "Speed": [0, 110],
+                    "RPM": [5000, 9000],
+                    "nGear": [1, 4],
+                    "Throttle": [0, 104],
                     "Brake": [True, False],
-                    "DRS": [0.0, 0.0],
+                    "DRS": [0, 0],
                 }
             ),
             "LEC",
@@ -101,9 +101,9 @@ def source_session(metadata: SessionMetadata) -> SourceSession:
                 {
                     "Date": date,
                     "SessionTime": pd.to_timedelta([0, 1], unit="s"),
-                    "X": [1.0, 2.0],
-                    "Y": [3.0, 4.0],
-                    "Z": [0.0, 0.0],
+                    "X": [1, 2],
+                    "Y": [3, 4],
+                    "Z": [0, 0],
                     "Status": ["OnTrack", "OnTrack"],
                 }
             ),

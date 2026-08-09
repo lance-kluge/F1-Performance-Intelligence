@@ -18,18 +18,26 @@ def test_normalizes_and_validates_all_fixture_frames(source_session: SourceSessi
     datasets = normalize_session(source_session.metadata, source_session.datasets)
     assert datasets[0].kind is DatasetKind.SESSION
     laps = next(item.frame for item in datasets if item.kind is DatasetKind.LAPS)
+    weather = next(item.frame for item in datasets if item.kind is DatasetKind.WEATHER)
     telemetry = next(item.frame for item in datasets if item.kind is DatasetKind.CAR_TELEMETRY)
+    position = next(item.frame for item in datasets if item.kind is DatasetKind.POSITION)
     assert str(laps["lap_number"].dtype) == "Int64"
+    assert str(laps["stint"].dtype) == "Int64"
     assert str(laps["lap_time_ns"].dtype) == "Int64"
     assert str(laps["fresh_tyre"].dtype) == "boolean"
     assert "date_utc_ns" in telemetry
     assert telemetry["driver"].unique().tolist() == ["LEC"]
-    assert telemetry["throttle_raw"].tolist() == [0.0, 104.0]
-    assert telemetry["throttle"].iloc[0] == 0.0
+    for column in ("speed", "rpm", "n_gear", "throttle", "throttle_raw", "drs"):
+        assert str(telemetry[column].dtype) == "Int64"
+    assert str(weather["wind_direction"].dtype) == "Int64"
+    for column in ("x", "y", "z"):
+        assert str(position[column].dtype) == "Int64"
+    assert telemetry["throttle_raw"].tolist() == [0, 104]
+    assert telemetry["throttle"].iloc[0] == 0
     assert pd.isna(telemetry["throttle"].iloc[1])
 
 
-def test_results_keep_grid_positions_numeric(metadata: SessionMetadata) -> None:
+def test_results_store_grid_positions_as_nullable_integers(metadata: SessionMetadata) -> None:
     frame = pd.DataFrame(
         {
             "DriverNumber": ["16"],
@@ -44,8 +52,8 @@ def test_results_keep_grid_positions_numeric(metadata: SessionMetadata) -> None:
 
     normalized = normalize_frame(DatasetKind.RESULTS, frame, metadata)
 
-    assert pd.api.types.is_numeric_dtype(normalized["grid_position"])
-    assert normalized["grid_position"].tolist() == [2.0]
+    assert str(normalized["grid_position"].dtype) == "Int64"
+    assert normalized["grid_position"].tolist() == [2]
 
 
 def test_results_store_finishing_positions_as_nullable_integers(

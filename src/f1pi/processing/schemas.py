@@ -39,7 +39,7 @@ class ResultsSchema(_BaseSchema):
     full_name: Series[str]
     team_name: Series[str]
     position: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=1)
-    grid_position: Series[float] = pa.Field(nullable=True, ge=0)
+    grid_position: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0)
     status: Series[str] = pa.Field(nullable=True)
 
 
@@ -48,7 +48,7 @@ class LapsSchema(_BaseSchema):
     driver_number: Series[str]
     lap_number: Series[pd.Int64Dtype] = pa.Field(ge=1)
     lap_time_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True, gt=0)
-    stint: Series[float] = pa.Field(nullable=True, ge=1)
+    stint: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=1)
     compound: Series[str] = pa.Field(nullable=True)
     tyre_life: Series[float] = pa.Field(nullable=True, ge=0)
     fresh_tyre: Series[pd.BooleanDtype] = pa.Field(nullable=True)
@@ -62,7 +62,7 @@ class WeatherSchema(_BaseSchema):
     humidity: Series[float] = pa.Field(nullable=True, ge=0, le=100)
     pressure: Series[float] = pa.Field(nullable=True, gt=0)
     rainfall: Series[pd.BooleanDtype] = pa.Field(nullable=True)
-    wind_direction: Series[float] = pa.Field(nullable=True, ge=0, le=360)
+    wind_direction: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0, le=360)
     wind_speed: Series[float] = pa.Field(nullable=True, ge=0)
 
 
@@ -70,22 +70,22 @@ class CarTelemetrySchema(_BaseSchema):
     driver: Series[str]
     date_utc_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True)
     session_time_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0)
-    speed: Series[float] = pa.Field(nullable=True, ge=0)
-    rpm: Series[float] = pa.Field(nullable=True, ge=0)
-    n_gear: Series[float] = pa.Field(nullable=True, ge=0)
-    throttle: Series[float] = pa.Field(nullable=True, ge=0, le=100)
-    throttle_raw: Series[float] = pa.Field(nullable=True, ge=0, le=104)
+    speed: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0)
+    rpm: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0)
+    n_gear: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0)
+    throttle: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0, le=100)
+    throttle_raw: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0, le=104)
     brake: Series[pd.BooleanDtype] = pa.Field(nullable=True)
-    drs: Series[float] = pa.Field(nullable=True, ge=0)
+    drs: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0)
 
 
 class PositionSchema(_BaseSchema):
     driver: Series[str]
     date_utc_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True)
     session_time_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0)
-    x: Series[float] = pa.Field(nullable=True)
-    y: Series[float] = pa.Field(nullable=True)
-    z: Series[float] = pa.Field(nullable=True)
+    x: Series[pd.Int64Dtype] = pa.Field(nullable=True)
+    y: Series[pd.Int64Dtype] = pa.Field(nullable=True)
+    z: Series[pd.Int64Dtype] = pa.Field(nullable=True)
     status: Series[str] = pa.Field(nullable=True)
 
 

@@ -14,6 +14,9 @@ columns required by downstream contracts.
   position coordinates retain FastF1's coordinate units.
 - Identifiers and categorical values use pandas' nullable string dtype.
 - Boolean channels use pandas' nullable boolean dtype.
+- Discrete numeric channels (positions, lap and stint numbers, wind direction, telemetry,
+  and position coordinates) use pandas' nullable signed 64-bit integer dtype so missing values
+  do not force integer measurements to floating point.
 
 ## Datasets
 
