@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from dataclasses import replace
 from pathlib import Path
 
@@ -187,6 +188,6 @@ def test_catalog_records_failure_when_artifact_cleanup_fails(
     with pytest.raises(StorageError, match="catalog commit failed"):
         service.ingest(SessionKey(2022, "Bahrain", "R"))
 
-    with sqlite3.connect(tmp_path / "catalog.sqlite3") as connection:
+    with closing(sqlite3.connect(tmp_path / "catalog.sqlite3")) as connection:
         status = connection.execute("SELECT status FROM ingestion_runs").fetchone()[0]
     assert status == "failed"
