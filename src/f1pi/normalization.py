@@ -34,7 +34,6 @@ _STRING_COLUMNS = {
     "country_code",
     "position_text",
     "classified_position",
-    "grid_position",
     "team_color",
 }
 _BOOLEAN_COLUMNS = {"brake", "rainfall", "fresh_tyre", "is_accurate", "deleted"}

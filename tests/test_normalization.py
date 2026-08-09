@@ -28,6 +28,25 @@ def test_normalizes_and_validates_all_fixture_frames(source_session: SourceSessi
     assert pd.isna(telemetry["throttle"].iloc[1])
 
 
+def test_results_keep_grid_positions_numeric(metadata: SessionMetadata) -> None:
+    frame = pd.DataFrame(
+        {
+            "DriverNumber": ["16"],
+            "Abbreviation": ["LEC"],
+            "FullName": ["Charles Leclerc"],
+            "TeamName": ["Ferrari"],
+            "Position": [1.0],
+            "GridPosition": [2.0],
+            "Status": ["Finished"],
+        }
+    )
+
+    normalized = normalize_frame(DatasetKind.RESULTS, frame, metadata)
+
+    assert pd.api.types.is_numeric_dtype(normalized["grid_position"])
+    assert normalized["grid_position"].tolist() == [2.0]
+
+
 def test_validation_reports_missing_columns(metadata: SessionMetadata) -> None:
     with pytest.raises(SchemaValidationError, match="laps failed schema validation"):
         normalize_frame(DatasetKind.LAPS, pd.DataFrame({"Driver": ["LEC"]}), metadata)
