@@ -7,6 +7,8 @@ import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
+import pandas as pd
+
 from f1pi.domain import Artifact, SessionMetadata, SourceDataset
 from f1pi.exceptions import StorageError
 
@@ -86,6 +88,9 @@ class ParquetDatasetStore:
         if not path.is_relative_to(self._root):
             raise StorageError(f"artifact escaped storage root: {artifact.relative_path}")
         return path
+
+    def read_artifact(self, artifact: Artifact) -> pd.DataFrame:
+        return pd.read_parquet(self.absolute_path(artifact))
 
     def _run_path(self, artifact: Artifact) -> Path:
         parts = artifact.relative_path.parts

@@ -7,10 +7,9 @@ from typing import cast
 import pandas as pd
 from pandera.typing import DataFrame
 
-from f1pi.adapters.parquet_store import ParquetDatasetStore
 from f1pi.domain import Artifact, CatalogSession, DatasetKind, SessionKey, SessionMetadata
 from f1pi.exceptions import DatasetNotAvailableError, SessionNotInStoreError, StorageError
-from f1pi.ports import Catalog
+from f1pi.ports import Catalog, DatasetReader
 from f1pi.schemas import (
     CarTelemetrySchema,
     LapsSchema,
@@ -28,7 +27,7 @@ class SessionDataset:
         self,
         session: CatalogSession,
         artifacts: tuple[Artifact, ...],
-        store: ParquetDatasetStore,
+        store: DatasetReader,
     ) -> None:
         self._session = session
         self._artifacts = artifacts
@@ -75,7 +74,7 @@ class SessionDataset:
             suffix = f" for partition {partition}" if partition else ""
             raise DatasetNotAvailableError(f"{kind.value} is not available{suffix}")
         try:
-            frames = [pd.read_parquet(self._store.absolute_path(artifact)) for artifact in selected]
+            frames = [self._store.read_artifact(artifact) for artifact in selected]
         except Exception as error:
             raise StorageError(
                 f"failed to read {kind.value} for {self.metadata.session_id}"
@@ -87,7 +86,7 @@ class SessionDataset:
 class SessionRepository:
     """Locate and open the catalog's active session snapshots."""
 
-    def __init__(self, catalog: Catalog, store: ParquetDatasetStore) -> None:
+    def __init__(self, catalog: Catalog, store: DatasetReader) -> None:
         self._catalog = catalog
         self._store = store
 

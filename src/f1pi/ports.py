@@ -6,6 +6,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
+import pandas as pd
+
 from f1pi.domain import (
     Artifact,
     CatalogSession,
@@ -35,6 +37,14 @@ class DatasetStore(Protocol):
     def remove_run(self, artifacts: Sequence[Artifact]) -> None: ...
 
     def artifact_exists(self, artifact: Artifact) -> bool: ...
+
+
+class DatasetReader(Protocol):
+    """Read persisted artifacts without coupling callers to a storage adapter."""
+
+    def artifact_exists(self, artifact: Artifact) -> bool: ...
+
+    def read_artifact(self, artifact: Artifact) -> pd.DataFrame: ...
 
 
 class Catalog(Protocol):
