@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from fastf1.core import Laps
 
 from f1pi.adapters import fastf1_client
 from f1pi.adapters.fastf1_client import FastF1Client
@@ -103,6 +104,17 @@ def test_client_detaches_frames_for_ingestion(
     car = next(item for item in result.datasets if item.kind is DatasetKind.CAR_TELEMETRY)
     assert car.partition == "LEC"
     assert type(car.frame) is pd.DataFrame
+
+
+def test_snapshot_frame_detaches_fastf1_session_behavior() -> None:
+    upstream = Laps({"Driver": ["LEC"], "LapNumber": [1.0]}, session=object())
+
+    snapshot = fastf1_client._snapshot_frame(upstream)
+
+    assert type(snapshot) is pd.DataFrame
+    assert not hasattr(snapshot, "session")
+    snapshot.loc[0, "Driver"] = "SAI"
+    assert upstream.loc[0, "Driver"] == "LEC"
 
 
 @pytest.mark.parametrize(

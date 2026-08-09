@@ -92,22 +92,22 @@ class FastF1Client:
             fastf1_version=fastf1.__version__,
         )
 
-        results = _plain_frame(session.results)
+        results = _snapshot_frame(session.results)
         datasets = [
             SourceDataset(DatasetKind.RESULTS, results),
-            SourceDataset(DatasetKind.LAPS, _plain_frame(session.laps)),
-            SourceDataset(DatasetKind.TRACK_STATUS, _plain_frame(session.track_status)),
-            SourceDataset(DatasetKind.SESSION_STATUS, _plain_frame(session.session_status)),
+            SourceDataset(DatasetKind.LAPS, _snapshot_frame(session.laps)),
+            SourceDataset(DatasetKind.TRACK_STATUS, _snapshot_frame(session.track_status)),
+            SourceDataset(DatasetKind.SESSION_STATUS, _snapshot_frame(session.session_status)),
         ]
         if options.weather:
             datasets.append(
-                SourceDataset(DatasetKind.WEATHER, _plain_frame(session.weather_data))
+                SourceDataset(DatasetKind.WEATHER, _snapshot_frame(session.weather_data))
             )
         if options.messages:
             datasets.append(
                 SourceDataset(
                     DatasetKind.RACE_CONTROL,
-                    _plain_frame(session.race_control_messages),
+                    _snapshot_frame(session.race_control_messages),
                 )
             )
         if options.telemetry:
@@ -115,12 +115,12 @@ class FastF1Client:
             for number, frame in session.car_data.items():
                 driver = abbreviations.get(str(number), str(number))
                 datasets.append(
-                    SourceDataset(DatasetKind.CAR_TELEMETRY, _plain_frame(frame), driver)
+                    SourceDataset(DatasetKind.CAR_TELEMETRY, _snapshot_frame(frame), driver)
                 )
             for number, frame in session.pos_data.items():
                 driver = abbreviations.get(str(number), str(number))
                 datasets.append(
-                    SourceDataset(DatasetKind.POSITION, _plain_frame(frame), driver)
+                    SourceDataset(DatasetKind.POSITION, _snapshot_frame(frame), driver)
                 )
         return SourceSession(metadata=metadata, datasets=tuple(datasets))
 
@@ -136,9 +136,9 @@ def _driver_abbreviations(results: pd.DataFrame) -> dict[str, str]:
     }
 
 
-def _plain_frame(frame: pd.DataFrame) -> pd.DataFrame:
-    """Detach a FastF1 DataFrame subclass using only public column arrays."""
-    return pd.DataFrame({column: frame[column].array.copy() for column in frame.columns})
+def _snapshot_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    """Detach session-bound FastF1 behavior from a persistence snapshot."""
+    return pd.DataFrame(frame).copy(deep=True)
 
 
 def _canonical_session_id(
