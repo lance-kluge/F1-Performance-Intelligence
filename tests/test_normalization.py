@@ -47,6 +47,28 @@ def test_results_keep_grid_positions_numeric(metadata: SessionMetadata) -> None:
     assert normalized["grid_position"].tolist() == [2.0]
 
 
+def test_results_store_finishing_positions_as_nullable_integers(
+    metadata: SessionMetadata,
+) -> None:
+    frame = pd.DataFrame(
+        {
+            "DriverNumber": ["16", "55"],
+            "Abbreviation": ["LEC", "SAI"],
+            "FullName": ["Charles Leclerc", "Carlos Sainz"],
+            "TeamName": ["Ferrari", "Ferrari"],
+            "Position": [1.0, None],
+            "GridPosition": [1.0, 3.0],
+            "Status": ["Finished", "Retired"],
+        }
+    )
+
+    normalized = normalize_frame(DatasetKind.RESULTS, frame, metadata)
+
+    assert str(normalized["position"].dtype) == "Int64"
+    assert normalized["position"].iloc[0] == 1
+    assert pd.isna(normalized["position"].iloc[1])
+
+
 def test_validation_reports_missing_columns(metadata: SessionMetadata) -> None:
     with pytest.raises(SchemaValidationError, match="laps failed schema validation"):
         normalize_frame(DatasetKind.LAPS, pd.DataFrame({"Driver": ["LEC"]}), metadata)

@@ -38,7 +38,7 @@ class ResultsSchema(_BaseSchema):
     abbreviation: Series[str] = pa.Field(str_length={"min_value": 3, "max_value": 3})
     full_name: Series[str]
     team_name: Series[str]
-    position: Series[float] = pa.Field(nullable=True, ge=1)
+    position: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=1)
     grid_position: Series[float] = pa.Field(nullable=True, ge=0)
     status: Series[str] = pa.Field(nullable=True)
 

@@ -42,7 +42,7 @@ def source_session(metadata: SessionMetadata) -> SourceSession:
                     "Abbreviation": ["LEC", "SAI"],
                     "FullName": ["Charles Leclerc", "Carlos Sainz"],
                     "TeamName": ["Ferrari", "Ferrari"],
-                    "Position": [1.0, 2.0],
+                    "Position": [1, 2],
                     "GridPosition": [1.0, 3.0],
                     "Status": ["Finished", "Finished"],
                 }
