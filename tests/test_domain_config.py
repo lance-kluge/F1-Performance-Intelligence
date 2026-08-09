@@ -17,6 +17,10 @@ def test_session_key_normalizes_aliases() -> None:
     assert SessionType.parse("qualifying") is SessionType.QUALIFYING
 
 
+def test_session_key_accepts_inaugural_championship_year() -> None:
+    assert SessionKey(1950, 1, "R").year == 1950
+
+
 @pytest.mark.parametrize("year,event", [(1949, 1), (2022, 0), (2022, "  ")])
 def test_session_key_rejects_invalid_values(year: int, event: int | str) -> None:
     with pytest.raises(ValueError):
