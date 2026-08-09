@@ -34,27 +34,36 @@ class SQLiteCatalog:
             JOIN sessions s ON s.session_id = a.session_id
             WHERE a.alias_id = ?
         """
-        with self._connection() as connection:
-            row = connection.execute(query, (key.alias_id,)).fetchone()
+        try:
+            with self._connection() as connection:
+                row = connection.execute(query, (key.alias_id,)).fetchone()
+        except sqlite3.Error as error:
+            raise StorageError("failed to find catalog session") from error
         return _catalog_session(row) if row else None
 
     def get_session(self, session_id: str) -> CatalogSession | None:
-        with self._connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
-            ).fetchone()
+        try:
+            with self._connection() as connection:
+                row = connection.execute(
+                    "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
+                ).fetchone()
+        except sqlite3.Error as error:
+            raise StorageError("failed to get catalog session") from error
         return _catalog_session(row) if row else None
 
     def list_artifacts(self, run_id: str) -> tuple[Artifact, ...]:
-        with self._connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT dataset_kind, relative_path, row_count, partition_key
-                FROM artifacts WHERE run_id = ?
-                ORDER BY dataset_kind, partition_key
-                """,
-                (run_id,),
-            ).fetchall()
+        try:
+            with self._connection() as connection:
+                rows = connection.execute(
+                    """
+                    SELECT dataset_kind, relative_path, row_count, partition_key
+                    FROM artifacts WHERE run_id = ?
+                    ORDER BY dataset_kind, partition_key
+                    """,
+                    (run_id,),
+                ).fetchall()
+        except sqlite3.Error as error:
+            raise StorageError("failed to list catalog artifacts") from error
         return tuple(
             Artifact(
                 kind=DatasetKind(row["dataset_kind"]),

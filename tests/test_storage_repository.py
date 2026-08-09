@@ -64,6 +64,20 @@ def test_repository_reports_missing_data(tmp_path: Path) -> None:
         repository.open(key)
 
 
+def test_catalog_read_errors_are_translated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")
+    monkeypatch.setattr(catalog, "_path", tmp_path)
+
+    with pytest.raises(StorageError, match="find catalog session"):
+        catalog.find_session(SessionKey(2022, 1, "R"))
+    with pytest.raises(StorageError, match="get catalog session"):
+        catalog.get_session("2022-01-bahrain-r")
+    with pytest.raises(StorageError, match="list catalog artifacts"):
+        catalog.list_artifacts("run")
+
+
 def test_repository_reads_through_dataset_reader(tmp_path: Path, metadata: SessionMetadata) -> None:
     catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")
     key = SessionKey(2022, 1, "R")
