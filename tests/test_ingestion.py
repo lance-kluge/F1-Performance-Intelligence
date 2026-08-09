@@ -113,6 +113,23 @@ def test_full_snapshot_satisfies_partial_request(
     assert source.calls == 1
 
 
+def test_ingestion_refreshes_snapshot_from_previous_schema_version(
+    tmp_path: Path, source_session: SourceSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = FakeSource(source_session)
+    service, _ = build_service(tmp_path, source)
+    key = SessionKey(2022, "Bahrain", "R")
+
+    first = service.ingest(key)
+    monkeypatch.setattr("f1pi.ingestion.SCHEMA_VERSION", source_session.metadata.schema_version + 1)
+    refreshed = service.ingest(key)
+
+    assert not first.cache_hit
+    assert not refreshed.cache_hit
+    assert refreshed.run_id != first.run_id
+    assert source.calls == 2
+
+
 def test_failed_validation_does_not_publish_session(
     tmp_path: Path, source_session: SourceSession
 ) -> None:

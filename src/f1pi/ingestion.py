@@ -9,6 +9,7 @@ from f1pi.domain import IngestionResult, LoadOptions, SessionKey
 from f1pi.logging import log_event
 from f1pi.normalization import normalize_session
 from f1pi.ports import Catalog, DatasetStore, SessionSource
+from f1pi.schemas import SCHEMA_VERSION
 
 
 class IngestionService:
@@ -27,9 +28,11 @@ class IngestionService:
             artifacts = self._catalog.list_artifacts(cached.active_run_id)
             artifact_kinds = {artifact.kind for artifact in artifacts}
             has_required_datasets = options.required_dataset_kinds() <= artifact_kinds
+            has_current_schema = cached.metadata.schema_version == SCHEMA_VERSION
             if (
                 artifacts
                 and has_required_datasets
+                and has_current_schema
                 and all(self._store.artifact_exists(item) for item in artifacts)
             ):
                 log_event(
