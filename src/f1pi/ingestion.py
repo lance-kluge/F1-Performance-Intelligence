@@ -25,7 +25,13 @@ class IngestionService:
         cached = self._catalog.find_session(key)
         if cached is not None and not options.force:
             artifacts = self._catalog.list_artifacts(cached.active_run_id)
-            if artifacts and all(self._store.artifact_exists(item) for item in artifacts):
+            artifact_kinds = {artifact.kind for artifact in artifacts}
+            has_required_datasets = options.required_dataset_kinds() <= artifact_kinds
+            if (
+                artifacts
+                and has_required_datasets
+                and all(self._store.artifact_exists(item) for item in artifacts)
+            ):
                 log_event(
                     self._logger,
                     logging.INFO,
@@ -82,4 +88,3 @@ class IngestionService:
             cache_hit=False,
             artifacts=artifacts,
         )
-

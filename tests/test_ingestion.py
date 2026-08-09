@@ -21,7 +21,19 @@ class FakeSource:
 
     def fetch(self, key: SessionKey, options: LoadOptions) -> SourceSession:
         self.calls += 1
-        return self.session
+        excluded = set()
+        if not options.telemetry:
+            excluded.update({DatasetKind.CAR_TELEMETRY, DatasetKind.POSITION})
+        if not options.weather:
+            excluded.add(DatasetKind.WEATHER)
+        if not options.messages:
+            excluded.add(DatasetKind.RACE_CONTROL)
+        return replace(
+            self.session,
+            datasets=tuple(
+                dataset for dataset in self.session.datasets if dataset.kind not in excluded
+            ),
+        )
 
 
 def build_service(tmp_path: Path, source: FakeSource) -> tuple[IngestionService, SessionRepository]:
@@ -50,6 +62,57 @@ def test_ingestion_is_idempotent_and_force_refreshes(
     assert repository.open(key).run_id == forced.run_id
 
 
+@pytest.mark.parametrize(
+    ("partial_options", "required_kind"),
+    [
+        (LoadOptions(telemetry=False), DatasetKind.CAR_TELEMETRY),
+        (LoadOptions(weather=False), DatasetKind.WEATHER),
+        (LoadOptions(messages=False), DatasetKind.RACE_CONTROL),
+    ],
+)
+def test_default_ingest_upgrades_partial_snapshot(
+    tmp_path: Path,
+    source_session: SourceSession,
+    partial_options: LoadOptions,
+    required_kind: DatasetKind,
+) -> None:
+    source = FakeSource(source_session)
+    service, _ = build_service(tmp_path, source)
+    key = SessionKey(2022, "Bahrain", "R")
+
+    partial = service.ingest(key, partial_options)
+    repeated_partial = service.ingest(key, partial_options)
+    upgraded = service.ingest(key)
+    repeated_full = service.ingest(key)
+
+    assert not partial.cache_hit
+    assert repeated_partial.cache_hit
+    assert repeated_partial.run_id == partial.run_id
+    assert not upgraded.cache_hit
+    assert upgraded.run_id != partial.run_id
+    assert required_kind in {artifact.kind for artifact in upgraded.artifacts}
+    assert repeated_full.cache_hit
+    assert repeated_full.run_id == upgraded.run_id
+    assert source.calls == 2
+
+
+def test_full_snapshot_satisfies_partial_request(
+    tmp_path: Path, source_session: SourceSession
+) -> None:
+    source = FakeSource(source_session)
+    service, _ = build_service(tmp_path, source)
+    key = SessionKey(2022, "Bahrain", "R")
+
+    full = service.ingest(key)
+    partial = service.ingest(
+        key, LoadOptions(telemetry=False, weather=False, messages=False)
+    )
+
+    assert partial.cache_hit
+    assert partial.run_id == full.run_id
+    assert source.calls == 1
+
+
 def test_failed_validation_does_not_publish_session(
     tmp_path: Path, source_session: SourceSession
 ) -> None:
@@ -63,4 +126,3 @@ def test_failed_validation_does_not_publish_session(
     with pytest.raises(SchemaValidationError):
         service.ingest(key)
     assert not repository.exists(key)
-

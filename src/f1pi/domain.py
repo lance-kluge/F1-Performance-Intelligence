@@ -89,6 +89,23 @@ class LoadOptions:
     messages: bool = True
     force: bool = False
 
+    def required_dataset_kinds(self) -> frozenset[DatasetKind]:
+        """Return the persisted datasets required to satisfy this load."""
+        required = {
+            DatasetKind.SESSION,
+            DatasetKind.RESULTS,
+            DatasetKind.LAPS,
+            DatasetKind.TRACK_STATUS,
+            DatasetKind.SESSION_STATUS,
+        }
+        if self.telemetry:
+            required.update({DatasetKind.CAR_TELEMETRY, DatasetKind.POSITION})
+        if self.weather:
+            required.add(DatasetKind.WEATHER)
+        if self.messages:
+            required.add(DatasetKind.RACE_CONTROL)
+        return frozenset(required)
+
 
 @dataclass(frozen=True, slots=True)
 class SessionMetadata:

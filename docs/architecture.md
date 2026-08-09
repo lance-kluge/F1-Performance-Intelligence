@@ -51,6 +51,10 @@ the same canonical session ID and active snapshot thereafter.
 - SQLite catalog: aliases, canonical session metadata, run history, active-run pointer, artifact
   locations, and row counts. It does not duplicate analytical rows.
 
+A catalog entry is a cache hit only when every artifact exists and its dataset kinds satisfy the
+current `LoadOptions`. Full snapshots can serve partial requests; requests for telemetry, weather,
+or messages automatically refresh an active snapshot that omitted those datasets.
+
 Car and position telemetry remain separate. FastF1 documents that combined telemetry includes
 interpolated values; lap alignment and derived distance therefore belong to the analysis layer.
 
