@@ -62,8 +62,20 @@ class IngestionService:
             )
         except Exception as error:
             if artifacts:
-                self._store.remove_run(artifacts)
-            self._catalog.fail_run(run_id, error)
+                try:
+                    self._store.remove_run(artifacts)
+                except Exception as cleanup_error:
+                    log_event(
+                        self._logger,
+                        logging.ERROR,
+                        "ingestion artifact cleanup failed",
+                        run_id=run_id,
+                        error_type=type(cleanup_error).__name__,
+                    )
+            try:
+                self._catalog.fail_run(run_id, error)
+            except Exception as catalog_error:
+                raise error from catalog_error
             log_event(
                 self._logger,
                 logging.ERROR,

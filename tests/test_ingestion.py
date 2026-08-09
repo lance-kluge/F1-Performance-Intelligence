@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import replace
 from pathlib import Path
 
@@ -9,7 +10,7 @@ import pytest
 from f1pi.adapters.parquet_store import ParquetDatasetStore
 from f1pi.adapters.sqlite_catalog import SQLiteCatalog
 from f1pi.domain import DatasetKind, LoadOptions, SessionKey, SourceDataset, SourceSession
-from f1pi.exceptions import SchemaValidationError
+from f1pi.exceptions import SchemaValidationError, StorageError
 from f1pi.ingestion import IngestionService
 from f1pi.repository import SessionRepository
 
@@ -34,6 +35,14 @@ class FakeSource:
                 dataset for dataset in self.session.datasets if dataset.kind not in excluded
             ),
         )
+
+
+def _raise_catalog_commit_error(*args: object, **kwargs: object) -> None:
+    raise StorageError("catalog commit failed")
+
+
+def _raise_cleanup_error(*args: object, **kwargs: object) -> None:
+    raise OSError("cleanup failed")
 
 
 def build_service(tmp_path: Path, source: FakeSource) -> tuple[IngestionService, SessionRepository]:
@@ -143,3 +152,20 @@ def test_failed_validation_does_not_publish_session(
     with pytest.raises(SchemaValidationError):
         service.ingest(key)
     assert not repository.exists(key)
+
+
+def test_catalog_records_failure_when_artifact_cleanup_fails(
+    tmp_path: Path, source_session: SourceSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")
+    store = ParquetDatasetStore(tmp_path / "processed")
+    service = IngestionService(FakeSource(source_session), store, catalog)
+    monkeypatch.setattr(catalog, "commit_success", _raise_catalog_commit_error)
+    monkeypatch.setattr(store, "remove_run", _raise_cleanup_error)
+
+    with pytest.raises(StorageError, match="catalog commit failed"):
+        service.ingest(SessionKey(2022, "Bahrain", "R"))
+
+    with sqlite3.connect(tmp_path / "catalog.sqlite3") as connection:
+        status = connection.execute("SELECT status FROM ingestion_runs").fetchone()[0]
+    assert status == "failed"
