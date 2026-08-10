@@ -21,6 +21,7 @@ _STRING_COLUMNS = {
     "status",
     "message",
     "compound",
+    "letter",
     "source",
     "category",
     "flag",

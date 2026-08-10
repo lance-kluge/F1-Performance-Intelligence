@@ -18,6 +18,8 @@ Caller
   │         └──────────── Catalog protocol ───────── SQLite adapter
   │
   └── SessionRepository ──────────────────────────── typed DataFrames
+            │
+            └── LapAnalysisService ── LapComparisonEngine ── chart-ready comparison
 ```
 
 Native FastF1 `Session`, `Laps`, `Lap`, and `Telemetry` objects are intentionally available
@@ -80,7 +82,8 @@ interpolated values; lap alignment and derived distance therefore belong to the 
 
 ## Future milestones
 
-Driver comparison, tire degradation, strategy simulation, UI, and natural-language explanation
-can use native FastF1 sessions for interactive calculations or `SessionRepository` for stable,
-offline inputs. They should obtain native sessions through `FastF1Client`, not configure FastF1
-caches independently or infer schemas from raw cache files.
+Tire degradation, strategy simulation, and future analytical services can follow the lap
+analyzer's split: an application service resolves a snapshot, a presentation-neutral engine owns
+the calculation, and immutable result records define the handoff to interfaces. They should obtain
+native sessions through `FastF1Client`, not configure FastF1 caches independently or infer schemas
+from raw cache files.

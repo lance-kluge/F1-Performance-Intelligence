@@ -32,3 +32,18 @@ class SessionNotInStoreError(StorageError):
 class DatasetNotAvailableError(StorageError):
     """The requested dataset was not included in the ingestion."""
 
+
+class IncompatibleSchemaError(StorageError):
+    """A stored snapshot uses a schema version this package cannot read."""
+
+
+class LapAnalysisError(F1PIError):
+    """A lap comparison cannot be completed from the available session data."""
+
+
+class LapNotFoundError(LapAnalysisError):
+    """A requested or eligible lap is not available."""
+
+
+class TelemetryNotAvailableError(LapAnalysisError):
+    """A selected lap does not have enough telemetry for comparison."""

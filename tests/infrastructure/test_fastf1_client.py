@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -39,6 +40,21 @@ class FakeFastF1Session:
 
     def load(self, **options: bool) -> None:
         self.load_options = options
+
+    def get_circuit_info(self) -> SimpleNamespace:
+        return SimpleNamespace(
+            rotation=27.0,
+            corners=pd.DataFrame(
+                {
+                    "Number": [1],
+                    "Letter": [""],
+                    "X": [1.0],
+                    "Y": [1.0],
+                    "Angle": [0.0],
+                    "Distance": [100.0],
+                }
+            )
+        )
 
 
 def test_client_returns_native_fastf1_session(
@@ -102,8 +118,35 @@ def test_client_detaches_frames_for_ingestion(
     )
     assert result.metadata.session_id == "2022-01-bahrain-r"
     car = next(item for item in result.datasets if item.kind is DatasetKind.CAR_TELEMETRY)
+    corners = next(
+        item for item in result.datasets if item.kind is DatasetKind.CIRCUIT_CORNERS
+    )
     assert car.partition == "LEC"
     assert type(car.frame) is pd.DataFrame
+    assert corners.frame.iloc[0]["Number"] == 1
+    assert corners.frame.iloc[0]["Rotation"] == 27.0
+
+
+def test_client_omits_unavailable_optional_circuit_metadata(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = FakeFastF1Session()
+
+    def unavailable_circuit_info() -> None:
+        raise AttributeError("'NoneType' object has no attribute 'add_marker_distance'")
+
+    monkeypatch.setattr(session, "get_circuit_info", unavailable_circuit_info)
+    monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
+    monkeypatch.setattr(
+        fastf1_client.fastf1.Cache, "enable_cache", lambda path, **options: None
+    )
+
+    result = FastF1Client(tmp_path / "cache").fetch(
+        SessionKey(2022, "Bahrain", "R"), LoadOptions()
+    )
+
+    assert any(item.kind is DatasetKind.CAR_TELEMETRY for item in result.datasets)
+    assert all(item.kind is not DatasetKind.CIRCUIT_CORNERS for item in result.datasets)
 
 
 def test_snapshot_frame_detaches_fastf1_session_behavior() -> None:

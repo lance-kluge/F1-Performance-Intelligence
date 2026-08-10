@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from f1pi.application.ingestion import IngestionService
+from f1pi.application.lap_analysis import LapAnalysisService
 from f1pi.application.repository import SessionRepository
 from f1pi.config import PlatformSettings
 from f1pi.infrastructure.fastf1_client import FastF1Client
@@ -18,6 +19,7 @@ class Platform:
     fastf1: FastF1Client
     ingestion: IngestionService
     sessions: SessionRepository
+    lap_analysis: LapAnalysisService
 
 
 def build_platform(settings: PlatformSettings | None = None) -> Platform:
@@ -27,8 +29,10 @@ def build_platform(settings: PlatformSettings | None = None) -> Platform:
     catalog = SQLiteCatalog(settings.catalog_path)
     store = ParquetDatasetStore(settings.processed_dir)
     fastf1_client = FastF1Client(settings.fastf1_cache_dir)
+    sessions = SessionRepository(catalog, store)
     return Platform(
         fastf1=fastf1_client,
         ingestion=IngestionService(fastf1_client, store, catalog),
-        sessions=SessionRepository(catalog, store),
+        sessions=sessions,
+        lap_analysis=LapAnalysisService(sessions),
     )

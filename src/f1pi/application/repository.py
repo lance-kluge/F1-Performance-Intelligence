@@ -10,6 +10,7 @@ from pandera.typing import DataFrame
 from f1pi.application.ports import Catalog, DatasetReader
 from f1pi.domain.exceptions import (
     DatasetNotAvailableError,
+    IncompatibleSchemaError,
     SessionNotInStoreError,
     StorageError,
 )
@@ -21,6 +22,7 @@ from f1pi.domain.models import (
     SessionMetadata,
 )
 from f1pi.processing.schemas import (
+    SCHEMA_VERSION,
     CarTelemetrySchema,
     LapsSchema,
     PositionSchema,
@@ -68,6 +70,9 @@ class SessionDataset:
     def position(self, driver: str | None = None) -> DataFrame[PositionSchema]:
         return cast(DataFrame[PositionSchema], self._read(DatasetKind.POSITION, driver))
 
+    def circuit_corners(self) -> pd.DataFrame:
+        return self._read(DatasetKind.CIRCUIT_CORNERS)
+
     def frame(self, kind: DatasetKind, partition: str | None = None) -> pd.DataFrame:
         """Read status, race-control, or session metadata datasets."""
         return self._read(kind, partition)
@@ -102,7 +107,7 @@ class SessionRepository:
 
     def exists(self, key: SessionKey) -> bool:
         session = self._catalog.find_session(key)
-        if session is None:
+        if session is None or session.metadata.schema_version != SCHEMA_VERSION:
             return False
         artifacts = self._catalog.list_artifacts(session.active_run_id)
         return bool(artifacts) and all(self._store.artifact_exists(item) for item in artifacts)
@@ -117,6 +122,11 @@ class SessionRepository:
         session = self._catalog.find_session(key)
         if session is None:
             raise SessionNotInStoreError(f"session is not in the local store: {key.alias_id}")
+        if session.metadata.schema_version != SCHEMA_VERSION:
+            raise IncompatibleSchemaError(
+                f"session snapshot uses schema version {session.metadata.schema_version}; "
+                f"re-ingest it with schema version {SCHEMA_VERSION}"
+            )
         artifacts = self._catalog.list_artifacts(session.active_run_id)
         if not artifacts or not all(self._store.artifact_exists(item) for item in artifacts):
             raise SessionNotInStoreError(

@@ -122,6 +122,19 @@ class FastF1Client:
                 datasets.append(
                     SourceDataset(DatasetKind.POSITION, _snapshot_frame(frame), driver)
                 )
+            try:
+                circuit_info = session.get_circuit_info()
+            except AttributeError:
+                circuit_info = None
+            if circuit_info is not None and not circuit_info.corners.empty:
+                datasets.append(
+                    SourceDataset(
+                        DatasetKind.CIRCUIT_CORNERS,
+                        _circuit_corners_snapshot(
+                            circuit_info.corners, circuit_info.rotation
+                        ),
+                    )
+                )
         return SourceSession(metadata=metadata, datasets=tuple(datasets))
 
 
@@ -139,6 +152,15 @@ def _driver_abbreviations(results: pd.DataFrame) -> dict[str, str]:
 def _snapshot_frame(frame: pd.DataFrame) -> pd.DataFrame:
     """Detach session-bound FastF1 behavior from a persistence snapshot."""
     return pd.DataFrame(frame).copy(deep=True)
+
+
+def _circuit_corners_snapshot(
+    corners: pd.DataFrame, rotation: float
+) -> pd.DataFrame:
+    """Preserve the transform needed to align position data with corner markers."""
+    snapshot = _snapshot_frame(corners)
+    snapshot["Rotation"] = float(rotation)
+    return snapshot
 
 
 def _canonical_session_id(
