@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import cast
 
 import numpy as np
@@ -10,24 +9,10 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from f1pi.analysis.models import CornerComparison, LapSummary, SynchronizationConfig
+from f1pi.analysis.models.prepared_trace import PreparedTrace
 from f1pi.domain.exceptions import TelemetryNotAvailableError
 
 NANOSECONDS_PER_SECOND = 1_000_000_000
-
-
-@dataclass(frozen=True, slots=True)
-class PreparedTrace:
-    distance: NDArray[np.float64]
-    elapsed: NDArray[np.float64]
-    speed: NDArray[np.float64]
-    throttle: NDArray[np.float64]
-    brake: NDArray[np.float64]
-    x: NDArray[np.float64]
-    y: NDArray[np.float64]
-
-    @property
-    def length_metres(self) -> float:
-        return float(self.distance[-1])
 
 
 def prepare_trace(
