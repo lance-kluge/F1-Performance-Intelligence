@@ -5,6 +5,8 @@ import pandas as pd
 import pytest
 
 from f1pi.analysis import LapComparisonEngine, LapSelection, SynchronizationConfig
+from f1pi.analysis.explanation import explain_comparison
+from f1pi.analysis.models import LapSummary, SectorComparison
 from f1pi.analysis.selection import select_lap
 from f1pi.domain.exceptions import LapNotFoundError, TelemetryNotAvailableError
 
@@ -138,6 +140,25 @@ def test_identical_laps_do_not_claim_one_driver_is_faster() -> None:
     assert result.explanation.faster_driver is None
     assert result.explanation.slower_driver is None
     assert result.explanation.text == "The selected laps have identical recorded lap times."
+
+
+def test_same_driver_explanation_distinguishes_lap_numbers() -> None:
+    faster = LapSummary("NOR", 7, 90.0, (30.0, 30.0, 30.0), True)
+    slower = LapSummary("NOR", 12, 90.4, (30.1, 30.1, 30.2), True)
+    sectors = (
+        SectorComparison(1, 30.0, 30.1, 0.1),
+        SectorComparison(2, 30.0, 30.1, 0.1),
+        SectorComparison(3, 30.0, 30.2, 0.2),
+    )
+
+    explanation = explain_comparison(faster, slower, sectors, ())
+
+    assert explanation.faster_driver == "NOR lap 7"
+    assert explanation.slower_driver == "NOR lap 12"
+    assert explanation.text == (
+        "NOR lap 7 is 0.400 seconds faster than NOR lap 12. "
+        "NOR lap 12 loses approximately 0.200 seconds in Sector 3."
+    )
 
 
 def test_numbered_lap_can_include_inaccurate_data() -> None:

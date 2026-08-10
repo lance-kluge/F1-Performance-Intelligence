@@ -40,11 +40,22 @@ def explain_comparison(
     key_corner = _largest_corner_loss(corners, direction)
     speed_advantage = _speed_advantage(key_corner, direction)
     throttle_advantage = _throttle_advantage(key_corner, direction)
+    distinguish_laps = faster.driver == slower.driver
+    faster_identity = _lap_identity(faster, distinguish_laps)
+    slower_identity = _lap_identity(slower, distinguish_laps)
 
-    sentences = [f"{faster.driver}'s lap is {overall:.3f} seconds faster than {slower.driver}'s."]
+    if distinguish_laps:
+        opening = (
+            f"{faster_identity} is {overall:.3f} seconds faster than {slower_identity}."
+        )
+    else:
+        opening = (
+            f"{faster.driver}'s lap is {overall:.3f} seconds faster than {slower.driver}'s."
+        )
+    sentences = [opening]
     if largest_sector is not None:
         sentences.append(
-            f"{slower.driver} loses approximately "
+            f"{slower_identity} loses approximately "
             f"{abs(largest_sector.delta_seconds or 0.0):.3f} seconds in "
             f"Sector {largest_sector.sector}."
         )
@@ -56,7 +67,7 @@ def explain_comparison(
             evidence.append(f"reaches full throttle {throttle_advantage:.0f} metres earlier")
         detail = ""
         if evidence:
-            detail = f", where {faster.driver} " + " and ".join(evidence)
+            detail = f", where {faster_identity} " + " and ".join(evidence)
         sentences.append(
             f"The largest localized loss is approximately "
             f"{abs(key_corner.time_delta_seconds):.3f} seconds at "
@@ -64,8 +75,8 @@ def explain_comparison(
         )
 
     return LapExplanation(
-        faster_driver=faster.driver,
-        slower_driver=slower.driver,
+        faster_driver=faster_identity,
+        slower_driver=slower_identity,
         largest_loss_sector=None if largest_sector is None else largest_sector.sector,
         sector_loss_seconds=(
             None if largest_sector is None else abs(largest_sector.delta_seconds or 0.0)
@@ -76,6 +87,10 @@ def explain_comparison(
         earlier_full_throttle_metres=throttle_advantage,
         text=" ".join(sentences),
     )
+
+
+def _lap_identity(lap: LapSummary, include_number: bool) -> str:
+    return f"{lap.driver} lap {lap.lap_number}" if include_number else lap.driver
 
 
 def _largest_sector_loss(
