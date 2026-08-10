@@ -127,6 +127,28 @@ def test_client_detaches_frames_for_ingestion(
     assert corners.frame.iloc[0]["Rotation"] == 27.0
 
 
+def test_client_omits_unavailable_optional_circuit_metadata(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = FakeFastF1Session()
+
+    def unavailable_circuit_info() -> None:
+        raise AttributeError("'NoneType' object has no attribute 'add_marker_distance'")
+
+    monkeypatch.setattr(session, "get_circuit_info", unavailable_circuit_info)
+    monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
+    monkeypatch.setattr(
+        fastf1_client.fastf1.Cache, "enable_cache", lambda path, **options: None
+    )
+
+    result = FastF1Client(tmp_path / "cache").fetch(
+        SessionKey(2022, "Bahrain", "R"), LoadOptions()
+    )
+
+    assert any(item.kind is DatasetKind.CAR_TELEMETRY for item in result.datasets)
+    assert all(item.kind is not DatasetKind.CIRCUIT_CORNERS for item in result.datasets)
+
+
 def test_snapshot_frame_detaches_fastf1_session_behavior() -> None:
     upstream = Laps({"Driver": ["LEC"], "LapNumber": [1.0]}, session=object())
 

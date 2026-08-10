@@ -122,7 +122,10 @@ class FastF1Client:
                 datasets.append(
                     SourceDataset(DatasetKind.POSITION, _snapshot_frame(frame), driver)
                 )
-            circuit_info = session.get_circuit_info()
+            try:
+                circuit_info = session.get_circuit_info()
+            except AttributeError:
+                circuit_info = None
             if circuit_info is not None and not circuit_info.corners.empty:
                 datasets.append(
                     SourceDataset(
