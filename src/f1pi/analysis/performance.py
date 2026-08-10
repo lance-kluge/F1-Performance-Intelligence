@@ -572,7 +572,7 @@ def _corner_metrics(
             apex_index,
             config.sustained_input_metres,
         ),
-        throttle_reapplication_distance_metres=_first_state_distance(
+        throttle_reapplication_distance_metres=_first_state_transition_distance(
             telemetry,
             throttle >= config.throttle_reapplication_percent,
             exit_apex_index,
@@ -601,6 +601,20 @@ def _first_state_distance(
     if not runs:
         return None
     return float(telemetry["distance_metres"].iloc[runs[0][0]])
+
+
+def _first_state_transition_distance(
+    telemetry: pd.DataFrame,
+    state: NDArray[np.bool_],
+    left: int,
+    right: int,
+    minimum_metres: float,
+) -> float | None:
+    runs = _sustained_runs(telemetry, state, left, right, minimum_metres)
+    for start, _ in runs:
+        if start > 0 and not state[start - 1]:
+            return float(telemetry["distance_metres"].iloc[start])
+    return None
 
 
 def _straight_metrics(

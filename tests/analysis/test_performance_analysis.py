@@ -98,6 +98,7 @@ def test_official_segmentation_groups_chicane_and_reconciles_every_interval() ->
     )
     assert corners[0].lap_a_corner_metrics is not None
     assert corners[0].lap_a_corner_metrics.minimum_gear is not None
+    assert corners[0].lap_a_corner_metrics.throttle_reapplication_distance_metres is None
     lap_length = float(telemetry["distance_metres"].iloc[-1])
     covered = sum(
         lap_length - section.start_distance_metres + section.end_distance_metres
@@ -108,6 +109,30 @@ def test_official_segmentation_groups_chicane_and_reconciles_every_interval() ->
     assert covered == pytest.approx(lap_length)
     assert quality.confidence is Confidence.HIGH
     assert quality.reconciliation_error_seconds < 1e-12
+
+
+def test_throttle_reapplication_requires_a_rising_threshold_crossing() -> None:
+    telemetry = _telemetry()
+    telemetry.loc[
+        telemetry["distance_metres"].between(250.0, 269.0),
+        "lap_a_throttle_percent",
+    ] = 0.0
+
+    sections, _ = analyze_performance(
+        telemetry,
+        _corners(),
+        _lap("NOR", 90.0),
+        _lap("VER", 90.4),
+        SegmentationConfig(),
+    )
+    corner = next(
+        section
+        for section in sections
+        if section.kind is SectionKind.CORNER_COMPLEX and section.section_id == "corner:t1-t2"
+    )
+
+    assert corner.lap_a_corner_metrics is not None
+    assert corner.lap_a_corner_metrics.throttle_reapplication_distance_metres == 270.0
 
 
 def test_segmentation_is_invariant_when_comparison_order_is_reversed() -> None:
