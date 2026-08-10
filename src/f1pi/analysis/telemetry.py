@@ -71,6 +71,8 @@ def synchronize_traces(
     config: SynchronizationConfig,
 ) -> pd.DataFrame:
     progress = np.linspace(0.0, 1.0, config.sample_count)
+    lap_a_brake = _spatial_interpolate(lap_a, lap_a.brake, progress)
+    lap_b_brake = _spatial_interpolate(lap_b, lap_b.brake, progress)
     synchronized = pd.DataFrame(
         {
             "distance_metres": progress * lap_a.length_metres,
@@ -81,8 +83,8 @@ def synchronize_traces(
             "lap_b_speed_kph": _spatial_interpolate(lap_b, lap_b.speed, progress),
             "lap_a_throttle_percent": _spatial_interpolate(lap_a, lap_a.throttle, progress),
             "lap_b_throttle_percent": _spatial_interpolate(lap_b, lap_b.throttle, progress),
-            "lap_a_brake": _spatial_interpolate(lap_a, lap_a.brake, progress) >= 0.5,
-            "lap_b_brake": _spatial_interpolate(lap_b, lap_b.brake, progress) >= 0.5,
+            "lap_a_brake": _nullable_brake(lap_a_brake),
+            "lap_b_brake": _nullable_brake(lap_b_brake),
             "lap_a_x": _spatial_interpolate(lap_a, lap_a.x, progress),
             "lap_a_y": _spatial_interpolate(lap_a, lap_a.y, progress),
             "lap_b_x": _spatial_interpolate(lap_b, lap_b.x, progress),
@@ -96,6 +98,12 @@ def synchronize_traces(
         synchronized["lap_a_elapsed_seconds"].to_numpy(), summary_a.sector_times_seconds
     )
     return synchronized
+
+
+def _nullable_brake(values: NDArray[np.float64]) -> pd.arrays.BooleanArray:
+    brake = pd.array(values >= 0.5, dtype="boolean")
+    brake[np.isnan(values)] = pd.NA
+    return brake
 
 
 def compare_corners(

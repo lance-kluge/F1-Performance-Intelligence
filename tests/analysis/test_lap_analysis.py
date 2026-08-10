@@ -105,7 +105,7 @@ def test_complete_comparison_is_spatially_synchronized_and_explained() -> None:
     assert len(result.telemetry) == 1000
     assert result.telemetry["time_delta_seconds"].iloc[0] == pytest.approx(0.0)
     assert result.telemetry["time_delta_seconds"].iloc[-1] == pytest.approx(0.4)
-    assert result.telemetry["lap_a_brake"].dtype == bool
+    assert result.telemetry["lap_a_brake"].dtype == pd.BooleanDtype()
     assert result.telemetry["sector"].dropna().unique().tolist() == [1.0, 2.0, 3.0]
 
     assert len(result.corners) == 1
@@ -226,6 +226,19 @@ def test_corner_matching_rotates_position_trace_to_marker_coordinates() -> None:
     )
 
     assert result.corners[0].distance_metres == pytest.approx(250.0, abs=1.0)
+
+
+def test_synchronization_preserves_unavailable_brake_samples() -> None:
+    session = MemorySession()
+    session._car["NOR"]["brake"] = pd.NA
+
+    result = LapComparisonEngine().compare(
+        session, LapSelection.fastest("NOR"), LapSelection.fastest("VER")
+    )
+
+    assert result.telemetry["lap_a_brake"].dtype == pd.BooleanDtype()
+    assert result.telemetry["lap_a_brake"].isna().all()
+    assert result.telemetry["lap_b_brake"].notna().all()
 
 
 def test_comparison_rejects_incomplete_lap_telemetry() -> None:
