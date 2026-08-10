@@ -6,7 +6,7 @@ import pytest
 
 from f1pi.analysis import LapComparisonEngine, LapSelection, SynchronizationConfig
 from f1pi.analysis.explanation import explain_comparison
-from f1pi.analysis.models import LapSummary, SectorComparison
+from f1pi.analysis.models import CornerComparison, LapSummary, SectorComparison
 from f1pi.analysis.selection import select_lap
 from f1pi.domain.exceptions import LapNotFoundError, TelemetryNotAvailableError
 
@@ -159,6 +159,32 @@ def test_same_driver_explanation_distinguishes_lap_numbers() -> None:
         "NOR lap 7 is 0.400 seconds faster than NOR lap 12. "
         "NOR lap 12 loses approximately 0.200 seconds in Sector 3."
     )
+
+
+def test_equal_time_different_laps_still_explain_local_tradeoffs() -> None:
+    lap_a = LapSummary("NOR", 7, 90.0, (30.0, 30.2, 29.8), True)
+    lap_b = LapSummary("NOR", 12, 90.0, (30.2, 29.9, 29.9), True)
+    sectors = (
+        SectorComparison(1, 30.0, 30.2, 0.2),
+        SectorComparison(2, 30.2, 29.9, -0.3),
+        SectorComparison(3, 29.8, 29.9, 0.1),
+    )
+    corners = (
+        CornerComparison(14, "", 250.0, 0.05, 145.0, 148.0, 310.0, 290.0),
+    )
+
+    explanation = explain_comparison(lap_a, lap_b, sectors, corners)
+
+    assert explanation.faster_driver is None
+    assert explanation.slower_driver is None
+    assert explanation.largest_loss_sector == 2
+    assert explanation.key_corner == "Turn 14"
+    assert explanation.minimum_speed_advantage_kph == pytest.approx(3.0)
+    assert explanation.earlier_full_throttle_metres == pytest.approx(20.0)
+    assert "NOR lap 7 and NOR lap 12 have identical recorded lap times" in explanation.text
+    assert "NOR lap 7 loses approximately 0.300 seconds" in explanation.text
+    assert "NOR lap 12 carries 3.0 km/h more minimum speed" in explanation.text
+    assert "NOR lap 12 reaches full throttle 20 metres earlier" in explanation.text
 
 
 def test_numbered_lap_can_include_inaccurate_data() -> None:
