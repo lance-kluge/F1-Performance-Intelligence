@@ -18,7 +18,7 @@ Python 3.11 or newer is required.
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[dev,ui]'
 ```
 
 `pyproject.toml` is the dependency source of truth. `requirements.txt` is a generated,
