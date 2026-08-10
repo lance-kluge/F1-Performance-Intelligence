@@ -76,6 +76,7 @@ class DatasetKind(StrEnum):
     WEATHER = "weather"
     CAR_TELEMETRY = "car_telemetry"
     POSITION = "position"
+    CIRCUIT_CORNERS = "circuit_corners"
     TRACK_STATUS = "track_status"
     SESSION_STATUS = "session_status"
     RACE_CONTROL = "race_control"
@@ -130,7 +131,7 @@ class SessionMetadata:
     session_name: str
     session_date_utc: datetime
     fastf1_version: str
-    schema_version: int = 1
+    schema_version: int = 2
 
     def __post_init__(self) -> None:
         if self.session_date_utc.tzinfo is None:

@@ -122,6 +122,14 @@ class FastF1Client:
                 datasets.append(
                     SourceDataset(DatasetKind.POSITION, _snapshot_frame(frame), driver)
                 )
+            circuit_info = session.get_circuit_info()
+            if circuit_info is not None and not circuit_info.corners.empty:
+                datasets.append(
+                    SourceDataset(
+                        DatasetKind.CIRCUIT_CORNERS,
+                        _snapshot_frame(circuit_info.corners),
+                    )
+                )
         return SourceSession(metadata=metadata, datasets=tuple(datasets))
 
 

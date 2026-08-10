@@ -1,12 +1,13 @@
 # F1 Performance Intelligence
 
 F1 Performance Intelligence is a typed, local-first Python foundation for Formula 1
-performance analysis. Milestone 1 ingests complete FastF1 sessions, normalizes them into
-stable pandas schemas, writes immutable Parquet snapshots, and uses SQLite to select the
-active snapshot.
+performance analysis. It ingests complete FastF1 sessions, normalizes them into stable pandas
+schemas, writes immutable Parquet snapshots, and uses SQLite to select the active snapshot.
+The headless lap analyzer returns synchronized telemetry, track coordinates, timing deltas, and
+an evidence-backed explanation of the largest loss.
 
-The package is intentionally headless. Driver analysis, tire modeling, strategy simulation,
-Streamlit, and the race-engineer interface will build on these contracts in later milestones.
+The package is intentionally headless. Streamlit, tire modeling, strategy simulation, and the
+race-engineer interface build on these contracts rather than owning analytical logic.
 
 ## Setup
 
@@ -58,6 +59,29 @@ The first native or ingestion load can take several minutes because FastF1 retri
 processes the session. FastF1's request cache accelerates later native loads. Repeated ingestion
 calls reuse the active normalized snapshot without invoking FastF1 at all.
 
+Compare the fastest accurate laps for two drivers:
+
+```python
+from f1pi import LapSelection, SessionKey, build_platform
+
+platform = build_platform()
+key = SessionKey(2026, "Monaco", "Q")
+
+comparison = platform.lap_analysis.compare(
+    key,
+    LapSelection.fastest("NOR"),
+    LapSelection.fastest("VER"),
+)
+
+print(comparison.delta_seconds)       # lap B - lap A
+print(comparison.explanation.text)
+print(comparison.telemetry.head())    # speed, inputs, track, and live delta
+```
+
+Use `LapSelection.numbered("NOR", 12)` to compare an explicit lap. Selections reject laps FastF1
+marks inaccurate by default; pass `accurate_only=False` when an inaccurate numbered lap is
+intentional.
+
 Snapshot and upstream refreshes are deliberately separate:
 
 ```python
@@ -99,8 +123,9 @@ pytest -m live tests/integration/test_live_bahrain.py --no-cov
 It ingests the 2022 Bahrain Grand Prix Race, verifies Charles Leclerc as the winner, reads all
 core datasets, demonstrates snapshot reuse, and exercises an upstream refresh.
 
-See [architecture](docs/architecture.md) and [schema reference](docs/schemas.md) for the
-platform boundaries and normalized units.
+See [architecture](docs/architecture.md), [lap analysis methodology](docs/lap-analysis.md), and
+[schema reference](docs/schemas.md) for the platform boundaries, comparison conventions, and
+normalized units.
 
 ## Data and trademarks
 

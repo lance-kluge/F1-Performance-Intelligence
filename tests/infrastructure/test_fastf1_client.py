@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -39,6 +40,20 @@ class FakeFastF1Session:
 
     def load(self, **options: bool) -> None:
         self.load_options = options
+
+    def get_circuit_info(self) -> SimpleNamespace:
+        return SimpleNamespace(
+            corners=pd.DataFrame(
+                {
+                    "Number": [1],
+                    "Letter": [""],
+                    "X": [1.0],
+                    "Y": [1.0],
+                    "Angle": [0.0],
+                    "Distance": [100.0],
+                }
+            )
+        )
 
 
 def test_client_returns_native_fastf1_session(
@@ -102,8 +117,12 @@ def test_client_detaches_frames_for_ingestion(
     )
     assert result.metadata.session_id == "2022-01-bahrain-r"
     car = next(item for item in result.datasets if item.kind is DatasetKind.CAR_TELEMETRY)
+    corners = next(
+        item for item in result.datasets if item.kind is DatasetKind.CIRCUIT_CORNERS
+    )
     assert car.partition == "LEC"
     assert type(car.frame) is pd.DataFrame
+    assert corners.frame.iloc[0]["Number"] == 1
 
 
 def test_snapshot_frame_detaches_fastf1_session_behavior() -> None:

@@ -9,7 +9,7 @@ from pandera.typing import Series
 from f1pi.domain.exceptions import SchemaValidationError
 from f1pi.domain.models import DatasetKind
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class _BaseSchema(pa.DataFrameModel):
@@ -48,6 +48,10 @@ class LapsSchema(_BaseSchema):
     driver_number: Series[str]
     lap_number: Series[pd.Int64Dtype] = pa.Field(ge=1)
     lap_time_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True, gt=0)
+    lap_start_time_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0)
+    sector1_time_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True, gt=0)
+    sector2_time_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True, gt=0)
+    sector3_time_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True, gt=0)
     stint: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=1)
     compound: Series[str] = pa.Field(nullable=True)
     tyre_life: Series[float] = pa.Field(nullable=True, ge=0)
@@ -89,6 +93,15 @@ class PositionSchema(_BaseSchema):
     status: Series[str] = pa.Field(nullable=True)
 
 
+class CircuitCornersSchema(_BaseSchema):
+    number: Series[int] = pa.Field(ge=1)
+    letter: Series[str] = pa.Field(nullable=True)
+    x: Series[float]
+    y: Series[float]
+    angle: Series[float] = pa.Field(nullable=True)
+    distance: Series[float] = pa.Field(nullable=True, ge=0)
+
+
 class TrackStatusSchema(_BaseSchema):
     time_ns: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0)
     status: Series[str]
@@ -111,6 +124,7 @@ SCHEMAS: dict[DatasetKind, type[pa.DataFrameModel]] = {
     DatasetKind.WEATHER: WeatherSchema,
     DatasetKind.CAR_TELEMETRY: CarTelemetrySchema,
     DatasetKind.POSITION: PositionSchema,
+    DatasetKind.CIRCUIT_CORNERS: CircuitCornersSchema,
     DatasetKind.TRACK_STATUS: TrackStatusSchema,
     DatasetKind.SESSION_STATUS: SessionStatusSchema,
     DatasetKind.RACE_CONTROL: RaceControlSchema,

@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from f1pi.application.repository import SessionRepository
-from f1pi.domain.exceptions import DatasetNotAvailableError, SessionNotInStoreError
+from f1pi.domain.exceptions import (
+    DatasetNotAvailableError,
+    IncompatibleSchemaError,
+    SessionNotInStoreError,
+)
 from f1pi.domain.models import Artifact, DatasetKind, SessionKey, SessionMetadata, SourceSession
 from f1pi.infrastructure.parquet_store import ParquetDatasetStore
 from f1pi.infrastructure.sqlite_catalog import SQLiteCatalog
@@ -90,6 +95,23 @@ def test_repository_reads_through_dataset_reader(tmp_path: Path, metadata: Sessi
     assert SessionRepository(catalog, reader).open(key).results().iloc[0]["abbreviation"] == "LEC"
 
 
+def test_repository_rejects_snapshot_from_previous_schema(
+    tmp_path: Path, metadata: SessionMetadata
+) -> None:
+    catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")
+    key = SessionKey(2022, 1, "R")
+    run_id = catalog.begin_run(key)
+    old_metadata = replace(metadata, schema_version=metadata.schema_version - 1)
+    artifact = Artifact(DatasetKind.LAPS, Path("laps.parquet"), row_count=1)
+    catalog.commit_success(run_id, key, old_metadata, (artifact,))
+    reader = InMemoryDatasetReader({artifact.relative_path: pd.DataFrame()})
+    repository = SessionRepository(catalog, reader)
+
+    assert not repository.exists(key)
+    with pytest.raises(IncompatibleSchemaError, match="re-ingest"):
+        repository.open(key)
+
+
 def test_dataset_reports_unloaded_partition(
     tmp_path: Path, metadata: SessionMetadata, source_session: SourceSession
 ) -> None:
@@ -103,4 +125,3 @@ def test_dataset_reports_unloaded_partition(
     catalog.commit_success(run_id, key, metadata, artifacts)
     with pytest.raises(DatasetNotAvailableError):
         SessionRepository(catalog, store).open(key).position("VER")
-
