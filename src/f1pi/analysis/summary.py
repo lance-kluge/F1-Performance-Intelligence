@@ -287,27 +287,49 @@ def _legacy_explanation(
     summary: ComparisonSummary,
 ) -> LapExplanation:
     delta = lap_b.lap_time_seconds - lap_a.lap_time_seconds
-    direction = 1.0 if delta >= 0 else -1.0
-    measured_sectors = [
-        sector
-        for sector in sectors
-        if sector.delta_seconds is not None and sector.delta_seconds * direction > 0
-    ]
-    largest_sector = max(
-        measured_sectors,
-        key=lambda sector: (sector.delta_seconds or 0.0) * direction,
-        default=None,
-    )
-    corner_losses = [
-        section
-        for section in sections
-        if section.kind is SectionKind.CORNER_COMPLEX and section.delta_seconds * direction > 0.001
-    ]
-    key_corner = max(
-        corner_losses,
-        key=lambda section: section.delta_seconds * direction,
-        default=None,
-    )
+    tied = abs(delta) <= 1e-12
+    if tied:
+        largest_sector = max(
+            (sector for sector in sectors if sector.delta_seconds not in (None, 0.0)),
+            key=lambda sector: abs(sector.delta_seconds or 0.0),
+            default=None,
+        )
+        key_corner = max(
+            (
+                section
+                for section in sections
+                if section.kind is SectionKind.CORNER_COMPLEX
+                and abs(section.delta_seconds) > 0.001
+            ),
+            key=lambda section: abs(section.delta_seconds),
+            default=None,
+        )
+        direction = (
+            1.0 if key_corner is None or key_corner.delta_seconds > 0 else -1.0
+        )
+    else:
+        direction = 1.0 if delta > 0 else -1.0
+        measured_sectors = [
+            sector
+            for sector in sectors
+            if sector.delta_seconds is not None and sector.delta_seconds * direction > 0
+        ]
+        largest_sector = max(
+            measured_sectors,
+            key=lambda sector: (sector.delta_seconds or 0.0) * direction,
+            default=None,
+        )
+        corner_losses = [
+            section
+            for section in sections
+            if section.kind is SectionKind.CORNER_COMPLEX
+            and section.delta_seconds * direction > 0.001
+        ]
+        key_corner = max(
+            corner_losses,
+            key=lambda section: section.delta_seconds * direction,
+            default=None,
+        )
     speed_advantage: float | None = None
     throttle_advantage: float | None = None
     if key_corner is not None:

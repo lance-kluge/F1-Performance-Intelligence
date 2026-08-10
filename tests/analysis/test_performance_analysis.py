@@ -287,6 +287,62 @@ def test_summary_reports_offsetting_gain_and_ignores_subthreshold_noise() -> Non
     assert all(finding.time_seconds >= 0.010 for finding in summary.findings)
 
 
+def test_tied_lap_explanation_ranks_local_differences_by_absolute_magnitude() -> None:
+    lap_a = _lap("NOR", 90.0)
+    lap_b = replace(_lap("NOR", 90.0), lap_number=2)
+    sections, quality = analyze_performance(
+        _telemetry(), _corners(), lap_a, lap_b, SegmentationConfig()
+    )
+    negative_corner = next(section for section in sections if section.section_id == "corner:t3")
+    assert negative_corner.lap_a_corner_metrics is not None
+    assert negative_corner.lap_b_corner_metrics is not None
+    adjusted_negative_corner = replace(
+        negative_corner,
+        delta_seconds=-0.200,
+        magnitude_seconds=0.200,
+        lap_a_corner_metrics=replace(
+            negative_corner.lap_a_corner_metrics,
+            minimum_speed_kph=140.0,
+            full_throttle_distance_metres=320.0,
+        ),
+        lap_b_corner_metrics=replace(
+            negative_corner.lap_b_corner_metrics,
+            minimum_speed_kph=150.0,
+            full_throttle_distance_metres=290.0,
+        ),
+    )
+    adjusted = tuple(
+        adjusted_negative_corner
+        if section.section_id == negative_corner.section_id
+        else replace(
+            section,
+            delta_seconds=(0.100 if section.section_id == "corner:t1-t2" else 0.0),
+            magnitude_seconds=(0.100 if section.section_id == "corner:t1-t2" else 0.0),
+        )
+        for section in sections
+    )
+    sectors = (
+        SectorComparison(1, 30.0, 30.2, 0.2),
+        SectorComparison(2, 30.2, 29.9, -0.3),
+        SectorComparison(3, 29.8, 29.9, 0.1),
+    )
+
+    _, explanation = summarize_performance(
+        lap_a,
+        lap_b,
+        sectors,
+        adjusted,
+        quality,
+        SegmentationConfig(),
+        _FakeProvider(),
+    )
+
+    assert explanation.largest_loss_sector == 2
+    assert explanation.key_corner == negative_corner.label
+    assert explanation.minimum_speed_advantage_kph == 10.0
+    assert explanation.earlier_full_throttle_metres == 30.0
+
+
 @pytest.mark.parametrize(
     "options",
     [
