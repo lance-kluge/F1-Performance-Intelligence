@@ -6,8 +6,9 @@ schemas, writes immutable Parquet snapshots, and uses SQLite to select the activ
 The headless lap analyzer returns synchronized telemetry, track coordinates, timing deltas, and
 an evidence-backed explanation of the largest loss.
 
-The package is intentionally headless. Streamlit, tire modeling, strategy simulation, and the
-race-engineer interface build on these contracts rather than owning analytical logic.
+The analytical package is presentation-neutral. A Streamlit interface builds on these contracts
+without owning analytical logic; tire modeling, strategy simulation, and the race-engineer
+interface remain future work.
 
 ## Setup
 
@@ -17,11 +18,23 @@ Python 3.11 or newer is required.
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[dev,ui]'
 ```
 
 `pyproject.toml` is the dependency source of truth. `requirements.txt` is a generated,
 runtime-only compatibility export.
+
+## Web application
+
+Run the local Streamlit interface from the repository root:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+The landing experience is intentionally independent of FastF1 and the local data store, so it
+starts without downloading a session. A future analysis workspace will load data only after a
+user asks for a specific event and session.
 
 ## Quick start
 
