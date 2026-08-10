@@ -106,16 +106,7 @@ def track_figure(comparison: LapComparison) -> go.Figure:
         )
     )
     local_delta = _local_delta_seconds(comparison)
-    progress = _lap_progress(comparison)
-    section_labels = _section_labels(comparison)
     classes = _dominance_classes(local_delta)
-    hover = tuple(
-        f"{section}<br>{lap_progress:.1f}% of lap<br>"
-        f"{_local_gain_text(comparison, delta)}"
-        for section, lap_progress, delta in zip(
-            section_labels, progress, local_delta, strict=True
-        )
-    )
     legend_seen: set[int] = set()
     for start, end, dominance in _dominance_runs(classes):
         color, name = _dominance_style(comparison, dominance)
@@ -131,8 +122,7 @@ def track_figure(comparison: LapComparison) -> go.Figure:
                 legendrank={1: 10, -1: 20, 0: 30}[dominance],
                 showlegend=show_legend,
                 line={"color": color, "width": 5},
-                text=hover[start : end + 1],
-                hovertemplate="%{text}<extra></extra>",
+                hoverinfo="skip",
             )
         )
     if comparison.corners:
@@ -140,7 +130,6 @@ def track_figure(comparison: LapComparison) -> go.Figure:
         marker_distance = np.array(
             [corner.distance_metres for corner in comparison.corners], dtype=float
         )
-        lap_length = float(distances[-1])
         figure.add_trace(
             go.Scatter(
                 x=np.interp(marker_distance, distances, telemetry["lap_a_x"]),
@@ -156,13 +145,7 @@ def track_figure(comparison: LapComparison) -> go.Figure:
                     "size": 7,
                 },
                 textfont={"color": "#f5f3ed", "size": 9},
-                customdata=[
-                    f"{corner.name}<br>"
-                    f"{corner.distance_metres / lap_length * 100:.1f}% of lap<br>"
-                    f"{_local_gain_text(comparison, corner.time_delta_seconds)}"
-                    for corner in comparison.corners
-                ],
-                hovertemplate="%{customdata}<extra></extra>",
+                hoverinfo="skip",
             )
         )
     figure.update_xaxes(visible=False)
@@ -465,17 +448,6 @@ def _dominance_style(comparison: LapComparison, dominance: int) -> tuple[str, st
     if dominance < 0:
         return DRIVER_B_COLOR, f"{comparison.lap_b.driver} gained"
     return NEUTRAL_COLOR, "Within 0.001s"
-
-
-def _local_gain_text(comparison: LapComparison, delta: float) -> str:
-    if delta > DOMINANCE_THRESHOLD_SECONDS:
-        return f"{comparison.lap_a.driver} gained {delta:.{MEASUREMENT_DECIMALS}f}s locally"
-    if delta < -DOMINANCE_THRESHOLD_SECONDS:
-        return (
-            f"{comparison.lap_b.driver} gained "
-            f"{abs(delta):.{MEASUREMENT_DECIMALS}f}s locally"
-        )
-    return "No measurable local gain"
 
 
 def _section_labels(comparison: LapComparison) -> tuple[str, ...]:

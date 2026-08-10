@@ -32,7 +32,8 @@ def test_core_figures_preserve_comparison_contract(comparison: LapComparison) ->
     track = track_figure(comparison)
     assert len(track.data) == 5
     assert list(track.data[-1].text) == ["T3", "T9"]
-    assert "Turn 3" in track.data[-1].customdata[0]
+    assert all(trace.hoverinfo == "skip" for trace in track.data)
+    assert track.data[-1].customdata is None
     speed = speed_figure(comparison)
     assert len(speed.data) == 2
     assert speed.layout.xaxis.title.text == "Lap progress"
