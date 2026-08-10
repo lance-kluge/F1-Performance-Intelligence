@@ -36,6 +36,12 @@ The landing experience is intentionally independent of FastF1 and the local data
 starts without downloading a session. A future analysis workspace will load data only after a
 user asks for a specific event and session.
 
+In **Lap analysis**, choose a season, race weekend, and completed session. The first load retrieves
+and normalizes FastF1 telemetry; later loads reuse the immutable local snapshot. Each driver can
+use their fastest accurate lap or an exact accurate lap number. Results include sector deltas, a
+circuit trace, the live time delta, speed, throttle and brake channels, corner losses, and the
+evidence-backed explanation returned by the analytical service.
+
 ## Quick start
 
 Use native FastF1 objects for interactive and analytical work:

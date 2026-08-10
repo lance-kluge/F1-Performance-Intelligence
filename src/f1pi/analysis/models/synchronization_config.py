@@ -10,6 +10,8 @@ class SynchronizationConfig:
     sample_count: int = 1000
     corner_window_metres: float = 100.0
     full_throttle_percent: float = 98.0
+    local_dominance_window_fraction: float = 0.03
+    minimum_straight_metres: float = 150.0
 
     def __post_init__(self) -> None:
         if self.sample_count < 100:
@@ -18,3 +20,7 @@ class SynchronizationConfig:
             raise ValueError("corner_window_metres must be positive")
         if not 0 < self.full_throttle_percent <= 100:
             raise ValueError("full_throttle_percent must be in (0, 100]")
+        if not 0 < self.local_dominance_window_fraction <= 0.2:
+            raise ValueError("local_dominance_window_fraction must be in (0, 0.2]")
+        if self.minimum_straight_metres <= 0:
+            raise ValueError("minimum_straight_metres must be positive")

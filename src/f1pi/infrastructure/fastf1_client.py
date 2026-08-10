@@ -16,6 +16,7 @@ from fastf1.exceptions import (
     NoLapDataError,
     RateLimitExceededError,
 )
+from requests import RequestException
 
 from f1pi.domain.exceptions import (
     InvalidSessionError,
@@ -25,6 +26,8 @@ from f1pi.domain.exceptions import (
 from f1pi.domain.models import (
     DatasetKind,
     LoadOptions,
+    ScheduledEvent,
+    ScheduledSession,
     SessionKey,
     SessionMetadata,
     SessionType,
@@ -61,6 +64,40 @@ class FastF1Client:
         except (SessionNotAvailableError, NoLapDataError) as error:
             raise UpstreamUnavailableError(str(error)) from error
         return session
+
+    def events(self, year: int) -> tuple[ScheduledEvent, ...]:
+        """Return the normalized, telemetry-capable championship schedule."""
+        try:
+            schedule = fastf1.get_event_schedule(year, include_testing=False)
+        except RateLimitExceededError as error:
+            raise UpstreamRateLimitError(str(error)) from error
+        except ValueError as error:
+            raise InvalidSessionError(str(error)) from error
+        except RequestException as error:
+            raise UpstreamUnavailableError(str(error)) from error
+
+        events: list[ScheduledEvent] = []
+        for _, event in schedule.iterrows():
+            round_number = int(event["RoundNumber"])
+            if round_number < 1 or not bool(event.get("F1ApiSupport", False)):
+                continue
+            sessions = tuple(
+                session
+                for position in range(1, 6)
+                if (session := _scheduled_session(event, position)) is not None
+            )
+            if sessions:
+                events.append(
+                    ScheduledEvent(
+                        year=year,
+                        round_number=round_number,
+                        event_name=str(event["EventName"]),
+                        country=str(event.get("Country", "")),
+                        location=str(event.get("Location", "")),
+                        sessions=sessions,
+                    )
+                )
+        return tuple(events)
 
     def fetch(self, key: SessionKey, options: LoadOptions) -> SourceSession:
         """Load a native session and detach frames for normalized persistence."""
@@ -147,6 +184,30 @@ def _driver_abbreviations(results: pd.DataFrame) -> dict[str, str]:
             results["DriverNumber"], results["Abbreviation"], strict=False
         )
     }
+
+
+_SCHEDULE_SESSION_TYPES = {
+    "Practice 1": SessionType.FP1,
+    "Practice 2": SessionType.FP2,
+    "Practice 3": SessionType.FP3,
+    "Qualifying": SessionType.QUALIFYING,
+    "Sprint": SessionType.SPRINT,
+    "Sprint Shootout": SessionType.SPRINT_SHOOTOUT,
+    "Sprint Qualifying": SessionType.SPRINT_QUALIFYING,
+    "Race": SessionType.RACE,
+}
+
+
+def _scheduled_session(event: pd.Series, position: int) -> ScheduledSession | None:
+    name = event.get(f"Session{position}")
+    starts_at = event.get(f"Session{position}DateUtc")
+    if pd.isna(name) or pd.isna(starts_at):
+        return None
+    session_type = _SCHEDULE_SESSION_TYPES.get(str(name))
+    if session_type is None:
+        return None
+    timestamp = pd.Timestamp(starts_at).to_pydatetime()
+    return ScheduledSession(session_type, str(name), timestamp)
 
 
 def _snapshot_frame(frame: pd.DataFrame) -> pd.DataFrame:

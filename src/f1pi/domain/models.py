@@ -40,6 +40,35 @@ class SessionType(StrEnum):
         return cls(normalized)
 
 
+@dataclass(frozen=True, slots=True)
+class ScheduledSession:
+    """One normalized session advertised by the upstream event schedule."""
+
+    session_type: SessionType
+    name: str
+    starts_at_utc: datetime
+
+    def __post_init__(self) -> None:
+        starts_at = self.starts_at_utc
+        if starts_at.tzinfo is None:
+            starts_at = starts_at.replace(tzinfo=UTC)
+        else:
+            starts_at = starts_at.astimezone(UTC)
+        object.__setattr__(self, "starts_at_utc", starts_at)
+
+
+@dataclass(frozen=True, slots=True)
+class ScheduledEvent:
+    """A championship event and its telemetry-capable sessions."""
+
+    year: int
+    round_number: int
+    event_name: str
+    country: str
+    location: str
+    sessions: tuple[ScheduledSession, ...]
+
+
 @dataclass(frozen=True, slots=True, init=False)
 class SessionKey:
     year: int

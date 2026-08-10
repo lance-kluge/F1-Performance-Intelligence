@@ -8,6 +8,7 @@ from f1pi.analysis import LapComparisonEngine, LapSelection, SynchronizationConf
 from f1pi.analysis.explanation import explain_comparison
 from f1pi.analysis.models import CornerComparison, LapSummary, SectorComparison
 from f1pi.analysis.selection import select_lap
+from f1pi.analysis.telemetry import compare_straights
 from f1pi.domain.exceptions import LapNotFoundError, TelemetryNotAvailableError
 
 
@@ -105,6 +106,7 @@ def test_complete_comparison_is_spatially_synchronized_and_explained() -> None:
     assert len(result.telemetry) == 1000
     assert result.telemetry["time_delta_seconds"].iloc[0] == pytest.approx(0.0)
     assert result.telemetry["time_delta_seconds"].iloc[-1] == pytest.approx(0.4)
+    assert result.telemetry["local_time_delta_seconds"].gt(0).all()
     assert result.telemetry["lap_a_brake"].dtype == pd.BooleanDtype()
     assert result.telemetry["sector"].dropna().unique().tolist() == [1.0, 2.0, 3.0]
 
@@ -116,6 +118,37 @@ def test_complete_comparison_is_spatially_synchronized_and_explained() -> None:
     assert result.explanation.earlier_full_throttle_metres == pytest.approx(25, abs=2)
     assert "Turn 14" in result.explanation.text
     assert "full throttle" in result.explanation.text
+
+
+def test_straight_comparison_includes_finish_line_and_excludes_short_gaps() -> None:
+    telemetry = pd.DataFrame(
+        {
+            "distance_metres": np.linspace(0.0, 1000.0, 101),
+            "time_delta_seconds": np.linspace(0.0, 0.5, 101),
+        }
+    )
+    corners = (
+        CornerComparison(1, "", 200.0, 0.02, 150.0, 149.0, None, None),
+        CornerComparison(2, "", 700.0, 0.03, 140.0, 138.0, None, None),
+    )
+
+    straights = compare_straights(telemetry, corners, SynchronizationConfig())
+
+    assert [straight.name for straight in straights] == [
+        "Turn 1 → Turn 2",
+        "Turn 2 → Turn 1",
+    ]
+    assert [straight.length_metres for straight in straights] == [300.0, 300.0]
+    assert [straight.time_delta_seconds for straight in straights] == pytest.approx(
+        [0.15, 0.15]
+    )
+
+    filtered = compare_straights(
+        telemetry,
+        corners,
+        SynchronizationConfig(minimum_straight_metres=301.0),
+    )
+    assert filtered == ()
 
 
 def test_explanation_preserves_evidence_when_faster_lap_is_b() -> None:
@@ -184,7 +217,7 @@ def test_equal_time_different_laps_still_explain_local_tradeoffs() -> None:
     assert "NOR lap 7 and NOR lap 12 have identical recorded lap times" in explanation.text
     assert "NOR lap 7 loses approximately 0.300 seconds" in explanation.text
     assert "NOR lap 12 carries 3.0 km/h more minimum speed" in explanation.text
-    assert "NOR lap 12 reaches full throttle 20 metres earlier" in explanation.text
+    assert "NOR lap 12 reaches full throttle 20.000 metres earlier" in explanation.text
 
 
 def test_numbered_lap_can_include_inaccurate_data() -> None:
@@ -288,6 +321,9 @@ def test_lap_selection_rejects_invalid_input(driver: str, lap_number: int | None
         {"sample_count": 99},
         {"corner_window_metres": 0},
         {"full_throttle_percent": 101},
+        {"local_dominance_window_fraction": 0},
+        {"local_dominance_window_fraction": 0.21},
+        {"minimum_straight_metres": 0},
     ],
 )
 def test_synchronization_config_rejects_invalid_values(options: dict[str, float]) -> None:
