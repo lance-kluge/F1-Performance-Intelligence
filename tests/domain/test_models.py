@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, datetime
 
 import pytest
 
-from f1pi.domain.models import SessionKey, SessionMetadata, SessionType, metadata_record
+from f1pi.domain.models import (
+    ScheduledSession,
+    SessionKey,
+    SessionMetadata,
+    SessionType,
+    metadata_record,
+)
 
 
 def test_session_key_normalizes_aliases() -> None:
@@ -45,3 +51,13 @@ def test_metadata_makes_naive_time_utc(metadata: SessionMetadata) -> None:
     )
     assert naive.session_date_utc.tzinfo is UTC
     assert metadata_record(naive)["schema_version"] == 2
+
+
+def test_scheduled_session_normalizes_time_to_utc() -> None:
+    session = ScheduledSession(
+        SessionType.QUALIFYING,
+        "Qualifying",
+        datetime(2026, 3, 7, 5),
+    )
+
+    assert session.starts_at_utc.tzinfo is UTC

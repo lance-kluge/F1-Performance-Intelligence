@@ -10,6 +10,11 @@ contracts.
 ```text
 Caller
   │
+  ├── Streamlit UI ───── SessionDiscoveryService ───── event schedule
+  │       │
+  │       ├───────────── IngestionService ──────────── local snapshot
+  │       └───────────── LapAnalysisService ────────── chart-ready comparison
+  │
   ├── FastF1Client.load ─────────────────────────── native FastF1 Session
   │
   ├── IngestionService ── SessionSource protocol ── FastF1Client.fetch
@@ -33,13 +38,23 @@ src/f1pi/
 ├── application/     use cases, repositories, and boundary protocols
 ├── processing/      normalization and versioned dataset schemas
 ├── infrastructure/  FastF1, Parquet, SQLite, and logging adapters
+├── ui/              Streamlit pages, UI facade, view models, and Plotly figures
 ├── config.py        environment-backed platform settings
 └── composition.py   concrete dependency wiring
 ```
 
 The `tests/` tree mirrors these package boundaries. End-to-end checks that cross every layer
-live under `tests/integration/`. Future analysis, simulation, and interface packages can be
-added beside these layers without mixing their code into the ingestion foundation.
+live under `tests/integration/`. The UI depends on application services and immutable result
+records; it does not duplicate lap calculations or reach into Parquet and SQLite adapters.
+Future analysis and simulation packages can be added beside these layers without mixing their
+code into the ingestion foundation.
+
+## Session discovery
+
+The event-schedule port normalizes FastF1 schedule rows into immutable `ScheduledEvent` and
+`ScheduledSession` records. The discovery service removes sessions that have not started, while
+the adapter excludes testing events, unsupported weekends, and unknown session labels. This keeps
+upstream pandas structures and schedule naming rules out of the Streamlit page.
 
 The persistence path is separate: `FastF1Client.fetch` detaches plain pandas frames, which are
 normalized and validated by versioned Pandera models before storage. Stored datasets never retain

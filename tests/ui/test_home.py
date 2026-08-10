@@ -25,7 +25,7 @@ def test_landing_page_renders_without_platform_or_fastf1() -> None:
             "fastf1_loaded": any(
                 name == "fastf1" or name.startswith("fastf1.") for name in sys.modules
             ),
-            "buttons": [[button.label, button.disabled] for button in app.button],
+            "page_links": [link.proto.label for link in app.get("page_link")],
             "markup": " ".join(element.proto.body for element in app.get("html")),
         }
         print(json.dumps(result))
@@ -42,9 +42,9 @@ def test_landing_page_renders_without_platform_or_fastf1() -> None:
     assert not result["has_exception"]
     assert not result["composition_loaded"]
     assert not result["fastf1_loaded"]
-    assert result["buttons"] == [
-        ["Open lap analysis — coming next", True],
-        ["Open lap analysis — coming next", True],
+    assert result["page_links"] == [
+        "Open lap analysis",
+        "Open lap analysis",
     ]
     rendered_markup = result["markup"]
     assert "See where the lap was won." in rendered_markup

@@ -15,12 +15,11 @@ dependencies = [
   "pandas>=2.2,<3",
   "pandera[pandas]>=0.32,<0.33",
   "pyarrow>=18,<24",
+  "plotly>=6.9,<7",
+  "streamlit>=1.60,<2",
 ]
 
 [project.optional-dependencies]
-ui = [
-  "streamlit>=1.60,<2",
-]
 dev = [
   "mypy>=1.15,<2",
   "pandas-stubs>=2.2",
@@ -52,7 +51,7 @@ mypy_path = "src"
 plugins = ["pandera.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["fastf1.*"]
+module = ["fastf1.*", "plotly.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]

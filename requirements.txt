@@ -4,3 +4,5 @@ numpy>=1.26,<2.5
 pandas>=2.2,<3
 pandera[pandas]>=0.32,<0.33
 pyarrow>=18,<24
+plotly>=6.9,<7
+streamlit>=1.60,<2

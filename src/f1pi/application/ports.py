@@ -12,6 +12,7 @@ from f1pi.domain.models import (
     Artifact,
     CatalogSession,
     LoadOptions,
+    ScheduledEvent,
     SessionKey,
     SessionMetadata,
     SourceDataset,
@@ -21,6 +22,10 @@ from f1pi.domain.models import (
 
 class SessionSource(Protocol):
     def fetch(self, key: SessionKey, options: LoadOptions) -> SourceSession: ...
+
+
+class EventScheduleSource(Protocol):
+    def events(self, year: int) -> tuple[ScheduledEvent, ...]: ...
 
 
 class DatasetStore(Protocol):

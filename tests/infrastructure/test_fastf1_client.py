@@ -7,8 +7,12 @@ import pandas as pd
 import pytest
 from fastf1.core import Laps
 
-from f1pi.domain.exceptions import InvalidSessionError, UpstreamRateLimitError
-from f1pi.domain.models import DatasetKind, LoadOptions, SessionKey
+from f1pi.domain.exceptions import (
+    InvalidSessionError,
+    UpstreamRateLimitError,
+    UpstreamUnavailableError,
+)
+from f1pi.domain.models import DatasetKind, LoadOptions, SessionKey, SessionType
 from f1pi.infrastructure import fastf1_client
 from f1pi.infrastructure.fastf1_client import FastF1Client
 
@@ -103,6 +107,75 @@ def test_client_can_force_fastf1_cache_renewal(
     )
 
     assert cache_options["force_renew"] is True
+
+
+def test_client_normalizes_supported_event_schedule(monkeypatch: pytest.MonkeyPatch) -> None:
+    schedule = pd.DataFrame(
+        {
+            "RoundNumber": [0, 1, 2],
+            "EventName": [
+                "Pre-Season Testing",
+                "Australian Grand Prix",
+                "Chinese Grand Prix",
+            ],
+            "Country": ["Bahrain", "Australia", "China"],
+            "Location": ["Sakhir", "Melbourne", "Shanghai"],
+            "F1ApiSupport": [False, True, False],
+            "Session1": ["Practice 1", "Practice 1", "Practice 1"],
+            "Session1DateUtc": pd.to_datetime(
+                ["2026-02-20 00:00", "2026-03-06 00:00", "2026-03-13 00:00"]
+            ),
+            "Session2": ["Practice 2", "Sprint Qualifying", "Practice 2"],
+            "Session2DateUtc": pd.to_datetime(
+                ["2026-02-21 00:00", "2026-03-06 05:00", "2026-03-13 05:00"]
+            ),
+            "Session3": [pd.NA, "Mystery Session", pd.NA],
+            "Session3DateUtc": pd.to_datetime([pd.NaT, "2026-03-07 00:00", pd.NaT]),
+            "Session4": [pd.NA, "Qualifying", pd.NA],
+            "Session4DateUtc": pd.to_datetime([pd.NaT, "2026-03-07 05:00", pd.NaT]),
+            "Session5": [pd.NA, "Race", pd.NA],
+            "Session5DateUtc": pd.to_datetime([pd.NaT, "2026-03-08 04:00", pd.NaT]),
+        }
+    )
+    monkeypatch.setattr(
+        fastf1_client.fastf1,
+        "get_event_schedule",
+        lambda *args, **kwargs: schedule,
+    )
+
+    events = FastF1Client(Path("cache")).events(2026)
+
+    assert len(events) == 1
+    assert events[0].round_number == 1
+    assert [session.session_type for session in events[0].sessions] == [
+        SessionType.FP1,
+        SessionType.SPRINT_QUALIFYING,
+        SessionType.QUALIFYING,
+        SessionType.RACE,
+    ]
+    assert all(session.starts_at_utc.tzinfo is not None for session in events[0].sessions)
+
+
+@pytest.mark.parametrize(
+    "upstream,expected",
+    [
+        (fastf1_client.RateLimitExceededError("slow down"), UpstreamRateLimitError),
+        (ValueError("bad year"), InvalidSessionError),
+        (fastf1_client.RequestException("offline"), UpstreamUnavailableError),
+    ],
+)
+def test_schedule_maps_upstream_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    upstream: Exception,
+    expected: type[Exception],
+) -> None:
+    def fail(*args: object, **kwargs: object) -> None:
+        raise upstream
+
+    monkeypatch.setattr(fastf1_client.fastf1, "get_event_schedule", fail)
+
+    with pytest.raises(expected):
+        FastF1Client(Path("cache")).events(2026)
 
 
 def test_client_detaches_frames_for_ingestion(
