@@ -33,8 +33,8 @@ streamlit run streamlit_app.py
 ```
 
 The landing experience is intentionally independent of FastF1 and the local data store, so it
-starts without downloading a session. The analysis workspace loads data only after a user asks
-for a specific event and session.
+starts without downloading a session. A future analysis workspace will load data only after a
+user asks for a specific event and session.
 
 ## Quick start
 
