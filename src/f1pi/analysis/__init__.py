@@ -8,6 +8,7 @@ from f1pi.analysis.models import (
     LapSelection,
     LapSummary,
     SectorComparison,
+    StraightComparison,
     SynchronizationConfig,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "LapSelection",
     "LapSummary",
     "SectorComparison",
+    "StraightComparison",
     "SynchronizationConfig",
 ]

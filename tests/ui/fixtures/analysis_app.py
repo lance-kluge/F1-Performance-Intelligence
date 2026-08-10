@@ -16,6 +16,7 @@ from f1pi.analysis.models import (
     LapSelection,
     LapSummary,
     SectorComparison,
+    StraightComparison,
 )
 from f1pi.domain.models import ScheduledEvent, ScheduledSession, SessionKey, SessionMetadata
 from f1pi.ui.models import DriverOption, LoadedSession
@@ -94,6 +95,7 @@ class FakeFacade:
                 "lap_b_x": [0, 102, 252, 398, 248, 0],
                 "lap_b_y": [0, 198, 302, 202, 2, 0],
                 "time_delta_seconds": [0, 0.05, 0.08, 0.16, 0.22, 0.4],
+                "local_time_delta_seconds": [0.01, 0.02, -0.02, -0.03, 0.04, 0.05],
                 "sector": [1.0, 1.0, 2.0, 2.0, 3.0, 3.0],
             }
         )
@@ -118,6 +120,9 @@ class FakeFacade:
                 5.0,
                 25.0,
                 "NOR is 0.400 seconds faster than VER. VER loses most in Sector 3.",
+            ),
+            straights=(
+                StraightComparison("Turn 3", "Turn 9", 400.0, 600.0, 200.0, 0.06),
             ),
         )
 

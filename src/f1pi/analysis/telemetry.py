@@ -8,7 +8,12 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from f1pi.analysis.models import CornerComparison, LapSummary, SynchronizationConfig
+from f1pi.analysis.models import (
+    CornerComparison,
+    LapSummary,
+    StraightComparison,
+    SynchronizationConfig,
+)
 from f1pi.analysis.models.prepared_trace import PreparedTrace
 from f1pi.domain.exceptions import TelemetryNotAvailableError
 
@@ -79,6 +84,10 @@ def synchronize_traces(
     synchronized["time_delta_seconds"] = (
         synchronized["lap_b_elapsed_seconds"] - synchronized["lap_a_elapsed_seconds"]
     )
+    synchronized["local_time_delta_seconds"] = _local_delta_change(
+        synchronized["time_delta_seconds"].to_numpy(dtype=float),
+        config.local_dominance_window_fraction,
+    )
     synchronized["sector"] = _sector_numbers(
         synchronized["lap_a_elapsed_seconds"].to_numpy(), summary_a.sector_times_seconds
     )
@@ -136,6 +145,45 @@ def compare_corners(
     return tuple(output)
 
 
+def compare_straights(
+    telemetry: pd.DataFrame,
+    corners: tuple[CornerComparison, ...],
+    config: SynchronizationConfig,
+) -> tuple[StraightComparison, ...]:
+    """Compare meaningful straights between fixed corner-analysis windows."""
+    if len(corners) < 2:
+        return ()
+    ordered = tuple(sorted(corners, key=lambda corner: corner.distance_metres))
+    lap_length = float(telemetry["distance_metres"].iloc[-1])
+    output: list[StraightComparison] = []
+
+    for index, current in enumerate(ordered):
+        following = ordered[(index + 1) % len(ordered)]
+        start = min(lap_length, current.distance_metres + config.corner_window_metres)
+        end = max(0.0, following.distance_metres - config.corner_window_metres)
+        wraps_finish_line = index == len(ordered) - 1
+        length = (lap_length - start + end) if wraps_finish_line else end - start
+        if length < config.minimum_straight_metres:
+            continue
+        if wraps_finish_line:
+            delta = _delta_change(telemetry, start, lap_length) + _delta_change(
+                telemetry, 0.0, end
+            )
+        else:
+            delta = _delta_change(telemetry, start, end)
+        output.append(
+            StraightComparison(
+                start_turn=current.name,
+                end_turn=following.name,
+                start_distance_metres=start,
+                end_distance_metres=end,
+                length_metres=length,
+                time_delta_seconds=delta,
+            )
+        )
+    return tuple(output)
+
+
 def _lap_sample_times(car: pd.DataFrame, start_ns: int, end_ns: int) -> NDArray[np.float64]:
     valid = car.loc[car["session_time_ns"].notna(), "session_time_ns"].astype("int64")
     if valid.empty or valid.min() > start_ns or valid.max() < end_ns:
@@ -180,6 +228,33 @@ def _spatial_interpolate(
     if valid.sum() < 2:
         return np.full(len(progress), np.nan)
     return np.interp(progress, trace_progress[valid], values[valid], left=np.nan, right=np.nan)
+
+
+def _local_delta_change(
+    cumulative_delta: NDArray[np.float64], window_fraction: float
+) -> NDArray[np.float64]:
+    """Return time gained across a centered, finish-line-aware lap window."""
+    half_window = max(1, round(len(cumulative_delta) * window_fraction / 2))
+    last = len(cumulative_delta) - 1
+    output = np.empty(len(cumulative_delta), dtype=float)
+    for index in range(len(cumulative_delta)):
+        before = index - half_window
+        after = index + half_window
+        if before < 0:
+            output[index] = (
+                cumulative_delta[after] - cumulative_delta[0]
+                + cumulative_delta[last]
+                - cumulative_delta[last + before]
+            )
+        elif after > last:
+            output[index] = (
+                cumulative_delta[last] - cumulative_delta[before]
+                + cumulative_delta[after - last]
+                - cumulative_delta[0]
+            )
+        else:
+            output[index] = cumulative_delta[after] - cumulative_delta[before]
+    return output
 
 
 def _sector_numbers(

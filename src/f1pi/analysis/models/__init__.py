@@ -6,6 +6,7 @@ from f1pi.analysis.models.lap_explanation import LapExplanation
 from f1pi.analysis.models.lap_selection import LapSelection
 from f1pi.analysis.models.lap_summary import LapSummary
 from f1pi.analysis.models.sector_comparison import SectorComparison
+from f1pi.analysis.models.straight_comparison import StraightComparison
 from f1pi.analysis.models.synchronization_config import SynchronizationConfig
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "LapSelection",
     "LapSummary",
     "SectorComparison",
+    "StraightComparison",
     "SynchronizationConfig",
 ]

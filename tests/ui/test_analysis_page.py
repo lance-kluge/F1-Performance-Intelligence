@@ -38,8 +38,9 @@ def test_guided_analysis_workflow_uses_specific_lap_and_renders_results() -> Non
     rendered_markup = " ".join(element.proto.body for element in app.get("html"))
     assert "Australian Grand Prix" in rendered_markup
     assert "Where the time was lost" in rendered_markup
+    assert "Track dominance" in rendered_markup
     assert "Turn 3" in rendered_markup
-    assert len(app.get("plotly_chart")) == 6
+    assert len(app.get("plotly_chart")) == 7
 
 
 def test_identical_selection_disables_comparison() -> None:

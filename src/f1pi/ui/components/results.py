@@ -10,9 +10,11 @@ from f1pi.analysis.models import LapComparison
 from f1pi.ui.charts import (
     corner_loss_figure,
     delta_figure,
+    dominance_shares,
     inputs_figure,
     sector_figure,
     speed_figure,
+    straight_loss_figure,
     track_figure,
 )
 from f1pi.ui.formatting import comparison_outcome, format_delta, format_lap_time
@@ -49,18 +51,27 @@ def render_results(session: LoadedSession, comparison: LapComparison) -> None:
         """
     )
 
-    st.html('<div class="f1pi-result-section"><span>03</span><h2>Circuit trace</h2></div>')
+    st.html('<div class="f1pi-result-section"><span>03</span><h2>Track dominance</h2></div>')
+    _render_dominance_summary(comparison)
+    st.caption(
+        "Line color shows who gained time locally across each 3% lap window. "
+        "Grey sections were within 0.001 seconds."
+    )
     st.plotly_chart(
-        track_figure(comparison), config=PLOT_CONFIG, width="stretch", key="track_map"
+        track_figure(comparison), config=PLOT_CONFIG, width="stretch", key="track_dominance"
     )
 
     st.html('<div class="f1pi-result-section"><span>04</span><h2>Live delta</h2></div>')
-    st.caption("Positive values mean Driver A is ahead; negative values mean Driver B is ahead.")
+    st.caption(
+        "The cumulative gap across lap progress. Positive means Driver A is ahead; "
+        "negative means Driver B is ahead."
+    )
     st.plotly_chart(
         delta_figure(comparison), config=PLOT_CONFIG, width="stretch", key="live_delta"
     )
 
     st.html('<div class="f1pi-result-section"><span>05</span><h2>Speed</h2></div>')
+    st.caption("Hover anywhere to see the current turn or straight and lap progress.")
     st.plotly_chart(
         speed_figure(comparison), config=PLOT_CONFIG, width="stretch", key="speed_trace"
     )
@@ -84,6 +95,22 @@ def render_results(session: LoadedSession, comparison: LapComparison) -> None:
             key="corner_losses",
         )
 
+    st.html('<div class="f1pi-result-section"><span>08</span><h2>Straight losses</h2></div>')
+    straight_figure = straight_loss_figure(comparison)
+    if straight_figure is None:
+        st.info("No meaningful straight loss was measured for the slower lap.")
+    else:
+        st.caption(
+            "Straights shorter than 150.000 metres are treated as part of the "
+            "surrounding corner complex."
+        )
+        st.plotly_chart(
+            straight_figure,
+            config=PLOT_CONFIG,
+            width="stretch",
+            key="straight_losses",
+        )
+
 
 def _render_summary(session: LoadedSession, comparison: LapComparison) -> None:
     winner, advantage = comparison_outcome(comparison)
@@ -104,6 +131,28 @@ def _render_summary(session: LoadedSession, comparison: LapComparison) -> None:
               <strong>{escape(winner)}</strong><small>{escape(advantage)}</small>
               <em>{format_delta(comparison.delta_seconds)} · B - A</em></article>
           </div>
+        </section>
+        """
+    )
+
+
+def _render_dominance_summary(comparison: LapComparison) -> None:
+    lap_a_share, lap_b_share, neutral_share = dominance_shares(comparison)
+    st.html(
+        f"""
+        <section class="f1pi-dominance-summary" aria-label="Track dominance summary">
+          <article class="f1pi-dominance-summary__a">
+            <span>{escape(comparison.lap_a.driver)} gained time</span>
+            <strong>{lap_a_share:.1f}%</strong><small>of lap progress</small>
+          </article>
+          <article class="f1pi-dominance-summary__b">
+            <span>{escape(comparison.lap_b.driver)} gained time</span>
+            <strong>{lap_b_share:.1f}%</strong><small>of lap progress</small>
+          </article>
+          <article>
+            <span>Within 0.001s</span>
+            <strong>{neutral_share:.1f}%</strong><small>of lap progress</small>
+          </article>
         </section>
         """
     )

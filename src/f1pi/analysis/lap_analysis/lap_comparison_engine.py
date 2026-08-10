@@ -11,7 +11,12 @@ from f1pi.analysis.models import (
     SynchronizationConfig,
 )
 from f1pi.analysis.selection import select_lap, summarize_lap
-from f1pi.analysis.telemetry import compare_corners, prepare_trace, synchronize_traces
+from f1pi.analysis.telemetry import (
+    compare_corners,
+    compare_straights,
+    prepare_trace,
+    synchronize_traces,
+)
 from f1pi.domain.exceptions import DatasetNotAvailableError
 
 
@@ -49,6 +54,7 @@ class LapComparisonEngine:
         except DatasetNotAvailableError:
             circuit_corners = pd.DataFrame()
         corners = compare_corners(telemetry, circuit_corners, self._config)
+        straights = compare_straights(telemetry, corners, self._config)
         sectors = _compare_sectors(summary_a.sector_times_seconds, summary_b.sector_times_seconds)
 
         return LapComparison(
@@ -59,6 +65,7 @@ class LapComparisonEngine:
             telemetry=telemetry,
             corners=corners,
             explanation=explain_comparison(summary_a, summary_b, sectors, corners),
+            straights=straights,
         )
 
 
