@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 import streamlit as st
@@ -19,6 +20,7 @@ from f1pi.ui.runtime import get_analysis_facade
 MIN_TELEMETRY_YEAR = 2018
 LOADED_SESSION_KEY = "f1pi_loaded_session"
 COMPARISON_KEY = "f1pi_comparison"
+logger = logging.getLogger(__name__)
 
 
 @st.cache_data(ttl=6 * 60 * 60, show_spinner=False)
@@ -207,6 +209,7 @@ def _lap_controls(
 
 
 def _render_error(error: Exception) -> None:
+    logger.exception("Lap analysis operation failed")
     message = user_error(error)
     st.error(f"**{message.title}**\n\n{message.detail}")
 

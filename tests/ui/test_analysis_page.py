@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from unittest.mock import Mock
 
 from streamlit.testing.v1 import AppTest
 
 from f1pi.ui.formatting import SPECIFIC_LAP
+from f1pi.ui.pages import lap_analysis
 
 FIXTURE_APP = Path(__file__).parent / "fixtures" / "analysis_app.py"
 
@@ -43,3 +46,23 @@ def test_identical_selection_disables_comparison() -> None:
 
     assert app.warning
     assert app.button[0].disabled is True
+
+
+def test_render_error_logs_original_exception_with_traceback(
+    caplog, monkeypatch
+) -> None:
+    rendered_error = Mock()
+    monkeypatch.setattr(lap_analysis.st, "error", rendered_error)
+    error = RuntimeError("comparison failed")
+
+    with caplog.at_level(logging.ERROR, logger=lap_analysis.__name__):
+        try:
+            raise error
+        except RuntimeError as caught:
+            lap_analysis._render_error(caught)
+
+    record = caplog.records[-1]
+    assert record.getMessage() == "Lap analysis operation failed"
+    assert record.exc_info is not None
+    assert record.exc_info[1] is error
+    rendered_error.assert_called_once()
