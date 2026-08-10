@@ -1,12 +1,9 @@
 """Orchestration for a complete, presentation-neutral lap comparison."""
 
-from __future__ import annotations
-
-from typing import Protocol
-
 import pandas as pd
 
 from f1pi.analysis.explanation import explain_comparison
+from f1pi.analysis.lap_analysis.analysis_session import AnalysisSession
 from f1pi.analysis.models import (
     LapComparison,
     LapSelection,
@@ -16,16 +13,6 @@ from f1pi.analysis.models import (
 from f1pi.analysis.selection import select_lap, summarize_lap
 from f1pi.analysis.telemetry import compare_corners, prepare_trace, synchronize_traces
 from f1pi.domain.exceptions import DatasetNotAvailableError
-
-
-class AnalysisSession(Protocol):
-    def laps(self) -> pd.DataFrame: ...
-
-    def car_telemetry(self, driver: str | None = None) -> pd.DataFrame: ...
-
-    def position(self, driver: str | None = None) -> pd.DataFrame: ...
-
-    def circuit_corners(self) -> pd.DataFrame: ...
 
 
 class LapComparisonEngine:
