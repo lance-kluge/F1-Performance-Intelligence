@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from f1pi.analysis.models import LapComparison
+from f1pi.analysis.models import LapComparison, SectorComparison
 from f1pi.ui.charts import (
     corner_loss_figure,
     delta_figure,
@@ -22,9 +22,16 @@ def test_core_figures_preserve_comparison_contract(comparison: LapComparison) ->
     comparison.telemetry.loc[1, "time_delta_seconds"] = 0.1236
     sectors = sector_figure(comparison)
     assert len(sectors.data) == 1
-    assert sectors.layout.xaxis.title.text == "Seconds"
+    assert sectors.layout.title.text == "SECTOR ADVANTAGE"
+    assert sectors.layout.xaxis.title.text == "Time gained (seconds)"
     assert sectors.layout.xaxis.tickformat == ".3f"
     assert sectors.layout.yaxis.title.text is None
+    assert sectors.data[0].text[0] == "NOR gained 0.050s on VER"
+    assert "NOR: 30.000s · VER: 30.050s" in sectors.data[0].customdata[0]
+    assert [annotation.text for annotation in sectors.layout.annotations] == [
+        "← VER gained time",
+        "NOR gained time →",
+    ]
     track = track_figure(comparison)
     assert len(track.data) == 5
     assert list(track.data[-1].text) == ["T3", "T9"]
@@ -61,6 +68,30 @@ def test_core_figures_preserve_comparison_contract(comparison: LapComparison) ->
         ("Start/finish straight · Turn 9 → Turn 3", 0.03),
     )
     assert dominance_shares(comparison) == pytest.approx((66.667, 33.333, 0.0), abs=0.001)
+
+
+def test_sector_figure_names_both_driver_directions_and_missing_data(
+    comparison: LapComparison,
+) -> None:
+    object.__setattr__(
+        comparison,
+        "sectors",
+        (
+            SectorComparison(1, 30.1, 30.0, -0.1),
+            SectorComparison(2, 30.0, 30.0, 0.0),
+            SectorComparison(3, None, None, None),
+        ),
+    )
+
+    sectors = sector_figure(comparison)
+
+    assert list(sectors.data[0].text) == [
+        "VER gained 0.100s on NOR",
+        "No recorded gain",
+        "Unavailable",
+    ]
+    assert list(sectors.data[0].marker.color) == ["#ff4f47", "#aaa7a0", "#aaa7a0"]
+    assert "VER: 30.000s" in sectors.data[0].customdata[0]
 
 
 def test_figures_handle_missing_optional_channels(comparison: LapComparison) -> None:

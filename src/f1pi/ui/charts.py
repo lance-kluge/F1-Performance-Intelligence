@@ -10,16 +10,11 @@ import plotly.graph_objects as go
 from numpy.typing import NDArray
 from plotly.subplots import make_subplots
 
-from f1pi.analysis.models import LapComparison, StraightComparison
-from f1pi.ui.formatting import (
-    MEASUREMENT_DECIMALS,
-    MEASUREMENT_TICK_FORMAT,
-    format_delta,
-)
+from f1pi.analysis.models import LapComparison, SectorComparison, StraightComparison
+from f1pi.ui.formatting import MEASUREMENT_DECIMALS, MEASUREMENT_TICK_FORMAT
 
 DRIVER_A_COLOR = "#f5f3ed"
 DRIVER_B_COLOR = "#ff4f47"
-POSITIVE_COLOR = "#67d2a0"
 MUTED_COLOR = "#aaa7a0"
 NEUTRAL_COLOR = "#6f6f74"
 GRID_COLOR = "rgba(245, 243, 237, 0.10)"
@@ -35,30 +30,84 @@ def sector_figure(comparison: LapComparison) -> go.Figure:
         0.0 if value is None else round(value, MEASUREMENT_DECIMALS)
         for value in values
     ]
-    labels = [format_delta(value) for value in values]
-    colors = [
-        MUTED_COLOR if value is None else DRIVER_B_COLOR if value >= 0 else POSITIVE_COLOR
-        for value in values
-    ]
+    details = [_sector_gain_details(comparison, sector) for sector in comparison.sectors]
+    largest_gain = max((abs(value) for value in numeric), default=0.0)
+    axis_limit = max(0.01, largest_gain * 1.9)
     figure = go.Figure(
         go.Bar(
             x=numeric,
             y=[f"Sector {sector.sector}" for sector in comparison.sectors],
             orientation="h",
-            marker_color=colors,
-            text=labels,
+            marker_color=[detail[1] for detail in details],
+            text=[detail[0] for detail in details],
             textposition="outside",
-            hovertemplate="%{y}<br>Lap B - Lap A: %{text}<extra></extra>",
+            cliponaxis=False,
+            customdata=[detail[2] for detail in details],
+            hovertemplate="%{customdata}<extra></extra>",
         )
     )
     figure.add_vline(x=0, line_color="rgba(245,243,237,.35)", line_width=1)
-    return _base_figure(
+    figure.add_annotation(
+        x=0,
+        y=1.18,
+        xref="paper",
+        yref="paper",
+        text=f"← {comparison.lap_b.driver} gained time",
+        showarrow=False,
+        xanchor="left",
+        font={"color": DRIVER_B_COLOR, "size": 11},
+    )
+    figure.add_annotation(
+        x=1,
+        y=1.18,
+        xref="paper",
+        yref="paper",
+        text=f"{comparison.lap_a.driver} gained time →",
+        showarrow=False,
+        xanchor="right",
+        font={"color": DRIVER_A_COLOR, "size": 11},
+    )
+    figure = _base_figure(
         figure,
-        "Sector delta",
-        "Seconds",
+        "Sector advantage",
+        "Time gained (seconds)",
         None,
-        height=260,
+        height=300,
         x_tickformat=MEASUREMENT_TICK_FORMAT,
+    )
+    figure.update_xaxes(range=[-axis_limit, axis_limit])
+    return figure
+
+
+def _sector_gain_details(
+    comparison: LapComparison, sector: SectorComparison
+) -> tuple[str, str, str]:
+    delta = sector.delta_seconds
+    sector_name = f"Sector {sector.sector}"
+    if delta is None:
+        return "Unavailable", MUTED_COLOR, f"{sector_name}<br>Sector timing unavailable"
+    if abs(delta) < 0.5 * 10**-MEASUREMENT_DECIMALS:
+        return (
+            "No recorded gain",
+            MUTED_COLOR,
+            f"{sector_name}<br>No recorded advantage<br>{_sector_times(comparison, sector)}",
+        )
+    if delta > 0:
+        winner, loser, color = comparison.lap_a.driver, comparison.lap_b.driver, DRIVER_A_COLOR
+    else:
+        winner, loser, color = comparison.lap_b.driver, comparison.lap_a.driver, DRIVER_B_COLOR
+    gain = abs(delta)
+    label = f"{winner} gained {gain:.{MEASUREMENT_DECIMALS}f}s on {loser}"
+    return label, color, f"{sector_name}<br>{label}<br>{_sector_times(comparison, sector)}"
+
+
+def _sector_times(comparison: LapComparison, sector: SectorComparison) -> str:
+    def display(value: float | None) -> str:
+        return "unavailable" if value is None else f"{value:.{MEASUREMENT_DECIMALS}f}s"
+
+    return (
+        f"{comparison.lap_a.driver}: {display(sector.lap_a_seconds)} · "
+        f"{comparison.lap_b.driver}: {display(sector.lap_b_seconds)}"
     )
 
 
