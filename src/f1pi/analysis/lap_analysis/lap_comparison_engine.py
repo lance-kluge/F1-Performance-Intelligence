@@ -37,7 +37,6 @@ class LapComparisonEngine:
     ) -> None:
         self._config = config or SynchronizationConfig()
         self._segmentation_config = segmentation_config or SegmentationConfig(
-            full_throttle_percent=self._config.full_throttle_percent,
             minimum_straight_metres=self._config.minimum_straight_metres,
         )
         self._summary_provider = summary_provider or DeterministicSummaryNarrativeProvider()

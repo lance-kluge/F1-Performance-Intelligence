@@ -269,6 +269,12 @@ def test_comparison_works_without_optional_corner_metadata() -> None:
     assert "Sector 3" in result.explanation.text
 
 
+def test_engine_accepts_valid_synchronization_full_throttle_threshold() -> None:
+    engine = LapComparisonEngine(SynchronizationConfig(full_throttle_percent=90.0))
+
+    assert engine is not None
+
+
 def test_corner_matching_ignores_display_rotation() -> None:
     session = MemorySession()
     session._corners = pd.DataFrame(
