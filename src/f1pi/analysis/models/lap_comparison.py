@@ -1,12 +1,19 @@
 """Complete lap comparison result."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
 from f1pi.analysis.models.corner_comparison import CornerComparison
 from f1pi.analysis.models.lap_explanation import LapExplanation
 from f1pi.analysis.models.lap_summary import LapSummary
+from f1pi.analysis.models.performance_analysis import (
+    AnalysisQuality,
+    ComparisonSummary,
+    Confidence,
+    PerformanceSectionComparison,
+    SegmentationSource,
+)
 from f1pi.analysis.models.sector_comparison import SectorComparison
 from f1pi.analysis.models.straight_comparison import StraightComparison
 
@@ -27,3 +34,14 @@ class LapComparison:
     corners: tuple[CornerComparison, ...]
     explanation: LapExplanation
     straights: tuple[StraightComparison, ...] = ()
+    sections: tuple[PerformanceSectionComparison, ...] = ()
+    summary: ComparisonSummary = field(default_factory=lambda: ComparisonSummary("", (), ""))
+    quality: AnalysisQuality = field(
+        default_factory=lambda: AnalysisQuality(
+            confidence=Confidence.LOW,
+            segmentation_source=SegmentationSource.TELEMETRY_ONLY,
+            available_channels=(),
+            warnings=("performance_analysis_unavailable",),
+            reconciliation_error_seconds=0.0,
+        )
+    )

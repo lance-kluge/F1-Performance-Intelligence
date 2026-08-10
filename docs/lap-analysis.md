@@ -16,7 +16,9 @@ The returned `LapComparison` contains:
 - one spatially synchronized telemetry frame with speed, throttle, brake, elapsed time, position,
   sector, and live time delta columns;
 - comparisons for every available circuit corner; and
-- a structured `LapExplanation` plus display-ready text.
+- a complete partition of the lap into attributed corner complexes and straights;
+- structured findings, quality metadata, and display-ready deterministic prose; and
+- compatibility projections through `corners`, `straights`, and `LapExplanation`.
 
 All signed deltas use `lap B - lap A`. A positive value means lap A is ahead or faster over that
 interval. Driver names remain outside telemetry column names so consumers can use a stable chart
@@ -41,19 +43,44 @@ The first value is zero and the finish value matches the overall lap-time differ
 `distance_metres` axis uses lap A as the reference; `relative_distance` is invariant to small
 differences in reconstructed path length.
 
-## Track and corner evidence
+## Performance segmentation and attribution
 
 Position channels are interpolated onto the same spatial grid, retaining coordinates for both
 drivers. Optional FastF1 circuit metadata supplies turn numbers. Each marker is located on lap A's
 measured path by nearest X/Y coordinate rather than trusting marker distance from a different
 reference lap.
 
-For every corner, the analyzer measures local delta change and minimum speed in a configurable
-window. It also finds the first post-corner sample at or above the configured full-throttle
-threshold. The explanation selects the sector and corner with the largest positive loss for the
-slower driver, then mentions minimum-speed and throttle differences only when the measurements
-support those claims. If corner metadata is unavailable, sector and overall explanations still
-work and the `corners` result is empty.
+The analyzer builds an order-independent consensus speed trace from both laps. Official markers
+anchor telemetry speed basins when available; otherwise prominent telemetry minima become
+deterministically numbered detected corners. Entry and exit boundaries use sustained braking,
+throttle lift, and full-throttle recovery, with speed maxima as channel-independent fallbacks.
+Linked turns with no meaningful recovery are grouped into a corner complex while retaining their
+individual apex metrics.
+
+Corner complexes and the remaining straights form a non-overlapping circular partition, including
+the start/finish straight. A section's signed attribution is the cumulative delta change at its
+boundaries, so all section values telescope exactly to the finish delta. Each corner is partitioned
+again into entry, apex-basin, and exit phases whose values reconcile to the parent complex.
+
+Corner metrics include entry, minimum, and exit speed; the minimum-speed location; brake and
+throttle events; full-throttle recovery; and minimum gear. Straight metrics include entry, exit,
+average, and maximum speed. Optional channels produce nullable metrics and quality warnings rather
+than failing an otherwise valid timing comparison.
+
+## Automated summary contract
+
+`ComparisonSummary` contains a headline, ranked structured findings, and narrative text. Findings
+reference stable section IDs, the affected driver or lap, time magnitude, phase, confidence, and
+the exact measurements that support their wording. The deterministic renderer reports the largest
+losses and strongest offsetting gain above the configured noise floor.
+
+`SummaryNarrativeProvider` is a narrow synchronous protocol for future narrative renderers. A
+provider can rewrite prose from immutable findings but cannot modify attribution, evidence, or
+quality. The composed platform uses the deterministic local renderer and performs no network call.
+
+`AnalysisQuality` reports the segmentation source, available telemetry channels, categorical
+confidence, reconciliation error, and machine-readable warnings. The analyzer only fails when
+required speed or timing coverage cannot describe a complete lap.
 
 These are comparative observations, not claims about driver intent or vehicle causality. Weather,
 traffic, tire state, energy deployment, and setup can all contribute to an observed difference.

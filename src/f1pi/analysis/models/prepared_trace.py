@@ -13,6 +13,7 @@ class PreparedTrace:
     speed: NDArray[np.float64]
     throttle: NDArray[np.float64]
     brake: NDArray[np.float64]
+    gear: NDArray[np.float64]
     x: NDArray[np.float64]
     y: NDArray[np.float64]
 

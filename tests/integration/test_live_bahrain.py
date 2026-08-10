@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from f1pi.analysis import LapSelection
 from f1pi.composition import build_platform
 from f1pi.config import PlatformSettings
 from f1pi.domain.models import DatasetKind, LoadOptions, SessionKey
@@ -36,6 +37,18 @@ def test_2022_bahrain_race_end_to_end(tmp_path: Path) -> None:
     assert not session.frame(DatasetKind.TRACK_STATUS).empty
     assert not session.frame(DatasetKind.SESSION_STATUS).empty
     assert not session.frame(DatasetKind.RACE_CONTROL).empty
+
+    comparison = platform.lap_analysis.compare(
+        key,
+        LapSelection.fastest("LEC"),
+        LapSelection.fastest("SAI"),
+    )
+    assert comparison.sections
+    assert sum(section.delta_seconds for section in comparison.sections) == pytest.approx(
+        comparison.delta_seconds,
+        abs=1e-9,
+    )
+    assert comparison.quality.reconciliation_error_seconds < 1e-9
 
     second = platform.ingestion.ingest(key)
     assert second.snapshot_reused
