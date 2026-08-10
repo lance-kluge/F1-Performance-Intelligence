@@ -8,7 +8,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from f1pi.analysis.models import LapComparison
-from f1pi.ui.formatting import format_delta
+from f1pi.ui.formatting import (
+    MEASUREMENT_DECIMALS,
+    MEASUREMENT_TICK_FORMAT,
+    format_delta,
+)
 
 DRIVER_A_COLOR = "#f5f3ed"
 DRIVER_B_COLOR = "#ff4f47"
@@ -21,7 +25,10 @@ TRANSPARENT = "rgba(0,0,0,0)"
 
 def sector_figure(comparison: LapComparison) -> go.Figure:
     values = [sector.delta_seconds for sector in comparison.sectors]
-    numeric = [0.0 if value is None else value for value in values]
+    numeric = [
+        0.0 if value is None else round(value, MEASUREMENT_DECIMALS)
+        for value in values
+    ]
     labels = [format_delta(value) for value in values]
     colors = [
         MUTED_COLOR if value is None else DRIVER_B_COLOR if value >= 0 else POSITIVE_COLOR
@@ -39,7 +46,14 @@ def sector_figure(comparison: LapComparison) -> go.Figure:
         )
     )
     figure.add_vline(x=0, line_color="rgba(245,243,237,.35)", line_width=1)
-    return _base_figure(figure, "Sector delta", "Seconds", None, height=260)
+    return _base_figure(
+        figure,
+        "Sector delta",
+        "Seconds",
+        None,
+        height=260,
+        x_tickformat=MEASUREMENT_TICK_FORMAT,
+    )
 
 
 def track_figure(comparison: LapComparison) -> go.Figure:
@@ -92,20 +106,31 @@ def delta_figure(comparison: LapComparison) -> go.Figure:
     telemetry = comparison.telemetry
     figure = go.Figure(
         go.Scatter(
-            x=telemetry["distance_metres"],
-            y=telemetry["time_delta_seconds"],
+            x=telemetry["distance_metres"].round(MEASUREMENT_DECIMALS),
+            y=telemetry["time_delta_seconds"].round(MEASUREMENT_DECIMALS),
             mode="lines",
             name="Lap B - Lap A",
             line={"color": DRIVER_B_COLOR, "width": 2.5},
             fill="tozeroy",
             fillcolor="rgba(255,79,71,.10)",
-            hovertemplate="%{x:.0f} m<br>Delta %{y:+.3f}s<extra></extra>",
+            hovertemplate=(
+                f"%{{x:.{MEASUREMENT_DECIMALS}f}} m<br>"
+                f"Delta %{{y:+.{MEASUREMENT_DECIMALS}f}}s<extra></extra>"
+            ),
         )
     )
     figure.add_hline(y=0, line_color="rgba(245,243,237,.35)", line_width=1)
     for distance in _sector_boundaries(comparison):
         figure.add_vline(x=distance, line_color=GRID_COLOR, line_dash="dot")
-    return _base_figure(figure, "Live time delta", "Distance (m)", "Seconds", height=330)
+    return _base_figure(
+        figure,
+        "Live time delta",
+        "Distance (m)",
+        "Seconds",
+        height=330,
+        x_tickformat=MEASUREMENT_TICK_FORMAT,
+        y_tickformat=MEASUREMENT_TICK_FORMAT,
+    )
 
 
 def speed_figure(comparison: LapComparison) -> go.Figure:
@@ -117,15 +142,25 @@ def speed_figure(comparison: LapComparison) -> go.Figure:
     ):
         figure.add_trace(
             go.Scatter(
-                x=telemetry["distance_metres"],
+                x=telemetry["distance_metres"].round(MEASUREMENT_DECIMALS),
                 y=telemetry[column],
                 mode="lines",
                 name=name,
                 line={"color": color, "width": 2},
-                hovertemplate="%{x:.0f} m<br>%{y:.0f} km/h<extra></extra>",
+                hovertemplate=(
+                    f"%{{x:.{MEASUREMENT_DECIMALS}f}} m<br>"
+                    "%{y:.0f} km/h<extra></extra>"
+                ),
             )
         )
-    return _base_figure(figure, "Speed comparison", "Distance (m)", "km/h", height=360)
+    return _base_figure(
+        figure,
+        "Speed comparison",
+        "Distance (m)",
+        "km/h",
+        height=360,
+        x_tickformat=MEASUREMENT_TICK_FORMAT,
+    )
 
 
 def inputs_figure(comparison: LapComparison) -> go.Figure:
@@ -143,12 +178,15 @@ def inputs_figure(comparison: LapComparison) -> go.Figure:
     ):
         figure.add_trace(
             go.Scatter(
-                x=telemetry["distance_metres"],
+                x=telemetry["distance_metres"].round(MEASUREMENT_DECIMALS),
                 y=telemetry[f"{prefix}_throttle_percent"],
                 mode="lines",
                 name=f"{label} throttle",
                 line={"color": color, "width": 2},
-                hovertemplate="%{x:.0f} m<br>Throttle %{y:.0f}%<extra></extra>",
+                hovertemplate=(
+                    f"%{{x:.{MEASUREMENT_DECIMALS}f}} m<br>"
+                    "Throttle %{y:.0f}%<extra></extra>"
+                ),
             ),
             row=1,
             col=1,
@@ -157,19 +195,29 @@ def inputs_figure(comparison: LapComparison) -> go.Figure:
         if not np.isnan(brake).all():
             figure.add_trace(
                 go.Scatter(
-                    x=telemetry["distance_metres"],
+                    x=telemetry["distance_metres"].round(MEASUREMENT_DECIMALS),
                     y=brake,
                     mode="lines",
                     name=f"{label} brake",
                     line={"color": color, "width": 2, "shape": "hv"},
-                    hovertemplate="%{x:.0f} m<br>Brake %{y:.0f}<extra></extra>",
+                    hovertemplate=(
+                        f"%{{x:.{MEASUREMENT_DECIMALS}f}} m<br>"
+                        "Brake %{y:.0f}<extra></extra>"
+                    ),
                 ),
                 row=2,
                 col=1,
             )
     figure.update_yaxes(title_text="Throttle %", range=[-5, 105], row=1, col=1)
     figure.update_yaxes(title_text="Brake", tickvals=[0, 1], row=2, col=1)
-    return _base_figure(figure, "Driver inputs", "Distance (m)", None, height=480)
+    return _base_figure(
+        figure,
+        "Driver inputs",
+        "Distance (m)",
+        None,
+        height=480,
+        x_tickformat=MEASUREMENT_TICK_FORMAT,
+    )
 
 
 def corner_loss_figure(comparison: LapComparison) -> go.Figure | None:
@@ -177,20 +225,30 @@ def corner_loss_figure(comparison: LapComparison) -> go.Figure | None:
     if not losses:
         return None
     names = [name for name, _ in losses]
-    values = [value for _, value in losses]
+    values = [round(value, MEASUREMENT_DECIMALS) for _, value in losses]
     figure = go.Figure(
         go.Bar(
             x=values,
             y=names,
             orientation="h",
             marker_color=DRIVER_B_COLOR,
-            text=[f"+{value:.3f}s" for value in values],
+            text=[f"+{value:.{MEASUREMENT_DECIMALS}f}s" for value in values],
             textposition="outside",
-            hovertemplate="%{y}<br>Observed loss %{x:.3f}s<extra></extra>",
+            hovertemplate=(
+                f"%{{y}}<br>Observed loss %{{x:.{MEASUREMENT_DECIMALS}f}}s"
+                "<extra></extra>"
+            ),
         )
     )
     figure.update_yaxes(autorange="reversed")
-    return _base_figure(figure, "Largest corner losses", "Seconds", None, height=360)
+    return _base_figure(
+        figure,
+        "Largest corner losses",
+        "Seconds",
+        None,
+        height=360,
+        x_tickformat=MEASUREMENT_TICK_FORMAT,
+    )
 
 
 def normalized_corner_losses(comparison: LapComparison) -> tuple[tuple[str, float], ...]:
@@ -209,7 +267,7 @@ def _sector_boundaries(comparison: LapComparison) -> tuple[float, ...]:
     sectors = telemetry["sector"].to_numpy(dtype=float)
     distance = telemetry["distance_metres"].to_numpy(dtype=float)
     changes = np.flatnonzero(np.diff(sectors, prepend=sectors[0]) > 0)
-    return tuple(float(distance[index]) for index in changes)
+    return tuple(round(float(distance[index]), MEASUREMENT_DECIMALS) for index in changes)
 
 
 def _brake_values(series: pd.Series) -> np.ndarray:
@@ -223,6 +281,8 @@ def _base_figure(
     y_title: str | None,
     *,
     height: int,
+    x_tickformat: str | None = None,
+    y_tickformat: str | None = None,
 ) -> go.Figure:
     figure.update_layout(
         title={"text": title.upper(), "font": {"size": 12, "color": MUTED_COLOR}},
@@ -238,7 +298,13 @@ def _base_figure(
     figure.update_xaxes(
         title_text=x_title,
         gridcolor=GRID_COLOR,
+        tickformat=x_tickformat,
         zeroline=False,
     )
-    figure.update_yaxes(title_text=y_title, gridcolor=GRID_COLOR, zeroline=False)
+    figure.update_yaxes(
+        title_text=y_title,
+        gridcolor=GRID_COLOR,
+        tickformat=y_tickformat,
+        zeroline=False,
+    )
     return figure

@@ -66,7 +66,9 @@ def explain_comparison(
         if speed_advantage is not None:
             evidence.append(f"carries {speed_advantage:.1f} km/h more minimum speed")
         if throttle_advantage is not None:
-            evidence.append(f"reaches full throttle {throttle_advantage:.0f} metres earlier")
+            evidence.append(
+                f"reaches full throttle {throttle_advantage:.3f} metres earlier"
+            )
         detail = ""
         if evidence:
             detail = f", where {faster_identity} " + " and ".join(evidence)
@@ -142,7 +144,7 @@ def _explain_tied_laps(
                 throttle_driver = identity_a if throttle_delta > 0 else identity_b
                 evidence.append(
                     f"{throttle_driver} reaches full throttle "
-                    f"{throttle_advantage:.0f} metres earlier"
+                    f"{throttle_advantage:.3f} metres earlier"
                 )
         sentences.append(
             f"The largest localized difference is approximately "

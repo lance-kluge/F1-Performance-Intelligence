@@ -184,7 +184,7 @@ def test_equal_time_different_laps_still_explain_local_tradeoffs() -> None:
     assert "NOR lap 7 and NOR lap 12 have identical recorded lap times" in explanation.text
     assert "NOR lap 7 loses approximately 0.300 seconds" in explanation.text
     assert "NOR lap 12 carries 3.0 km/h more minimum speed" in explanation.text
-    assert "NOR lap 12 reaches full throttle 20 metres earlier" in explanation.text
+    assert "NOR lap 12 reaches full throttle 20.000 metres earlier" in explanation.text
 
 
 def test_numbered_lap_can_include_inaccurate_data() -> None:

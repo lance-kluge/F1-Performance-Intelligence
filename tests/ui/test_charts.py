@@ -15,15 +15,31 @@ from f1pi.ui.charts import (
 
 
 def test_core_figures_preserve_comparison_contract(comparison: LapComparison) -> None:
+    comparison.telemetry.loc[1, "distance_metres"] = 200.1236
+    comparison.telemetry.loc[1, "time_delta_seconds"] = 0.1236
     sectors = sector_figure(comparison)
     assert len(sectors.data) == 1
     assert sectors.layout.xaxis.title.text == "Seconds"
+    assert sectors.layout.xaxis.tickformat == ".3f"
     assert sectors.layout.yaxis.title.text is None
     assert len(track_figure(comparison).data) == 3
-    assert len(speed_figure(comparison).data) == 2
-    assert len(inputs_figure(comparison).data) == 4
-    assert delta_figure(comparison).data[0].y[-1] == 0.4
-    assert corner_loss_figure(comparison) is not None
+    speed = speed_figure(comparison)
+    assert len(speed.data) == 2
+    assert speed.layout.xaxis.tickformat == ".3f"
+    assert speed.data[0].x[1] == 200.124
+    inputs = inputs_figure(comparison)
+    assert len(inputs.data) == 4
+    assert inputs.layout.xaxis.tickformat == ".3f"
+    delta = delta_figure(comparison)
+    assert delta.data[0].x[1] == 200.124
+    assert delta.data[0].y[1] == 0.124
+    assert delta.data[0].y[-1] == 0.4
+    assert delta.layout.xaxis.tickformat == ".3f"
+    assert delta.layout.yaxis.tickformat == ".3f"
+    assert "%{x:.3f} m" in delta.data[0].hovertemplate
+    corner_loss = corner_loss_figure(comparison)
+    assert corner_loss is not None
+    assert corner_loss.layout.xaxis.tickformat == ".3f"
     assert normalized_corner_losses(comparison) == (("Turn 3", 0.08), ("Turn 9", 0.04))
 
 

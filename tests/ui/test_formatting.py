@@ -15,6 +15,7 @@ from f1pi.ui.formatting import (
 
 def test_display_formatters() -> None:
     assert format_lap_time(75.096) == "1:15.096"
+    assert format_lap_time(119.9996) == "2:00.000"
     assert format_delta(0.184) == "+0.184s"
     assert format_delta(-0.022) == "-0.022s"
     assert format_delta(0.0001) == "+0.000s"
