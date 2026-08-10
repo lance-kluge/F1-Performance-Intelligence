@@ -28,10 +28,7 @@ def test_core_figures_preserve_comparison_contract(comparison: LapComparison) ->
     assert sectors.layout.yaxis.title.text is None
     assert sectors.data[0].text[0] == "NOR gained 0.050s on VER"
     assert "NOR: 30.000s · VER: 30.050s" in sectors.data[0].customdata[0]
-    assert [annotation.text for annotation in sectors.layout.annotations] == [
-        "← VER gained time",
-        "NOR gained time →",
-    ]
+    assert not sectors.layout.annotations
     track = track_figure(comparison)
     assert len(track.data) == 5
     assert list(track.data[-1].text) == ["T3", "T9"]

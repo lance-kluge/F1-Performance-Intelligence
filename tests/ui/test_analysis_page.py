@@ -40,10 +40,7 @@ def test_guided_analysis_workflow_uses_specific_lap_and_renders_results() -> Non
     assert "Where the time was lost" in rendered_markup
     assert "Track dominance" in rendered_markup
     assert "Turn 3" in rendered_markup
-    assert any(
-        "Left of center means VER gained on NOR" in caption.value
-        for caption in app.caption
-    )
+    assert not any("Left of center" in caption.value for caption in app.caption)
     assert len(app.get("plotly_chart")) == 7
 
 

@@ -47,26 +47,6 @@ def sector_figure(comparison: LapComparison) -> go.Figure:
         )
     )
     figure.add_vline(x=0, line_color="rgba(245,243,237,.35)", line_width=1)
-    figure.add_annotation(
-        x=0,
-        y=1.18,
-        xref="paper",
-        yref="paper",
-        text=f"← {comparison.lap_b.driver} gained time",
-        showarrow=False,
-        xanchor="left",
-        font={"color": DRIVER_B_COLOR, "size": 11},
-    )
-    figure.add_annotation(
-        x=1,
-        y=1.18,
-        xref="paper",
-        yref="paper",
-        text=f"{comparison.lap_a.driver} gained time →",
-        showarrow=False,
-        xanchor="right",
-        font={"color": DRIVER_A_COLOR, "size": 11},
-    )
     figure = _base_figure(
         figure,
         "Sector advantage",

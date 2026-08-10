@@ -28,11 +28,6 @@ def render_results(session: LoadedSession, comparison: LapComparison) -> None:
     _render_summary(session, comparison)
 
     st.html('<div class="f1pi-result-section"><span>01</span><h2>Sector comparison</h2></div>')
-    st.caption(
-        f"Left of center means {comparison.lap_b.driver} gained on "
-        f"{comparison.lap_a.driver}; right means {comparison.lap_a.driver} gained on "
-        f"{comparison.lap_b.driver}. Each label states the sector winner and exact gain."
-    )
     st.plotly_chart(
         sector_figure(comparison),
         config=PLOT_CONFIG,
