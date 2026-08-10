@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import cast
 
 import streamlit as st
 
@@ -100,8 +101,8 @@ def _load_or_restore_session(
     event: ScheduledEvent,
     session: ScheduledSession,
 ) -> LoadedSession | None:
-    loaded = st.session_state.get(LOADED_SESSION_KEY)
-    if isinstance(loaded, LoadedSession) and loaded.key == key:
+    loaded = _loaded_session_from_state(st.session_state.get(LOADED_SESSION_KEY), key)
+    if loaded is not None:
         st.success(
             f"{loaded.metadata.event_name} · {loaded.metadata.session_name} is ready"
             + (" from the local snapshot." if loaded.snapshot_reused else ".")
@@ -123,7 +124,7 @@ def _load_or_restore_session(
     except Exception as error:
         _render_error(error)
         return None
-    st.session_state[LOADED_SESSION_KEY] = loaded
+    st.session_state[LOADED_SESSION_KEY] = _session_state(key, loaded)
     st.session_state.pop(COMPARISON_KEY, None)
     st.success(f"{loaded.metadata.event_name} · {loaded.metadata.session_name} is ready.")
     return loaded
@@ -161,17 +162,34 @@ def _render_comparison_controls(facade: AnalysisFacade, loaded: LoadedSession) -
                 )
                 comparison_result = facade.compare(loaded.key, lap_a, lap_b)
                 status.update(label="Comparison ready", state="complete", expanded=False)
-            st.session_state[COMPARISON_KEY] = comparison_result
+            st.session_state[COMPARISON_KEY] = _session_state(
+                loaded.key, comparison_result
+            )
         except Exception as error:
             _render_error(error)
+        else:
+            # Render the durable result on a clean run instead of relying on the
+            # transient button run to deliver every chart update to the browser.
+            st.rerun()
 
-    stored_comparison = st.session_state.get(COMPARISON_KEY)
-    if isinstance(stored_comparison, LapComparison):
+    stored_comparison = _comparison_from_state(
+        st.session_state.get(COMPARISON_KEY), loaded.key
+    )
+    if stored_comparison is not None:
+        st.success(
+            f"Comparison ready · {stored_comparison.lap_a.driver} lap "
+            f"{stored_comparison.lap_a.lap_number} vs "
+            f"{stored_comparison.lap_b.driver} lap "
+            f"{stored_comparison.lap_b.lap_number}"
+        )
         st.html(
             '<div class="f1pi-stage f1pi-stage--results"><span>03</span>'
             "<h2>Read the lap</h2></div>"
         )
-        render_results(loaded, stored_comparison)
+        try:
+            render_results(loaded, stored_comparison)
+        except Exception as error:
+            _render_error(error)
 
 
 def _lap_controls(
@@ -221,6 +239,36 @@ def _clear_loaded_state() -> None:
 
 def _clear_comparison_state() -> None:
     st.session_state.pop(COMPARISON_KEY, None)
+
+
+def _session_state(key: SessionKey, value: object) -> dict[str, object]:
+    """Scope a UI payload without depending on its runtime class identity."""
+    return {"session_alias": key.alias_id, "value": value}
+
+
+def _loaded_session_from_state(value: object, key: SessionKey) -> LoadedSession | None:
+    """Restore current and pre-envelope state across Streamlit module reloads."""
+    if isinstance(value, dict):
+        if value.get("session_alias") != key.alias_id:
+            return None
+        payload = value.get("value")
+        return None if payload is None else cast(LoadedSession, payload)
+    if value is not None and getattr(value, "key", None) == key:
+        return cast(LoadedSession, value)
+    return None
+
+
+def _comparison_from_state(value: object, key: SessionKey) -> LapComparison | None:
+    """Restore a comparison while rejecting results belonging to another session."""
+    if isinstance(value, dict):
+        if value.get("session_alias") != key.alias_id:
+            return None
+        payload = value.get("value")
+        return None if payload is None else cast(LapComparison, payload)
+    # Comparisons stored by the first version of the workspace were unscoped.
+    # Selection callbacks already clear them, so retaining one during a hot reload
+    # is safer than silently dropping a completed analysis.
+    return None if value is None else cast(LapComparison, value)
 
 
 def _event_label(event: ScheduledEvent) -> str:
