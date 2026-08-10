@@ -43,6 +43,7 @@ class FakeFastF1Session:
 
     def get_circuit_info(self) -> SimpleNamespace:
         return SimpleNamespace(
+            rotation=27.0,
             corners=pd.DataFrame(
                 {
                     "Number": [1],
@@ -123,6 +124,7 @@ def test_client_detaches_frames_for_ingestion(
     assert car.partition == "LEC"
     assert type(car.frame) is pd.DataFrame
     assert corners.frame.iloc[0]["Number"] == 1
+    assert corners.frame.iloc[0]["Rotation"] == 27.0
 
 
 def test_snapshot_frame_detaches_fastf1_session_behavior() -> None:

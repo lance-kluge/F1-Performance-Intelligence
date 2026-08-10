@@ -186,6 +186,27 @@ def test_comparison_works_without_optional_corner_metadata() -> None:
     assert "Sector 3" in result.explanation.text
 
 
+def test_corner_matching_rotates_position_trace_to_marker_coordinates() -> None:
+    session = MemorySession()
+    session._corners = pd.DataFrame(
+        {
+            "number": [14],
+            "letter": [""],
+            "x": [0.0],
+            "y": [250.0],
+            "angle": [0.0],
+            "distance": [250.0],
+            "rotation": [90.0],
+        }
+    )
+
+    result = LapComparisonEngine().compare(
+        session, LapSelection.fastest("NOR"), LapSelection.fastest("VER")
+    )
+
+    assert result.corners[0].distance_metres == pytest.approx(250.0, abs=1.0)
+
+
 def test_comparison_rejects_incomplete_lap_telemetry() -> None:
     with pytest.raises(TelemetryNotAvailableError, match="does not span"):
         LapComparisonEngine().compare(
