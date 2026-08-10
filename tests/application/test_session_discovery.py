@@ -8,7 +8,7 @@ from f1pi.application.session_discovery import SessionDiscoveryService
 from f1pi.domain.models import ScheduledEvent, ScheduledSession, SessionType
 
 
-def test_discovery_returns_only_events_with_started_sessions() -> None:
+def test_discovery_returns_only_events_with_completed_sessions() -> None:
     source = Mock(spec=EventScheduleSource)
     source.events.return_value = (
         ScheduledEvent(
@@ -76,7 +76,33 @@ def test_discovery_treats_naive_cutoff_as_utc() -> None:
     )
 
     events = SessionDiscoveryService(source).list_available_events(
-        2026, as_of_utc=datetime(2026, 3, 8, 5)
+        2026, as_of_utc=datetime(2026, 3, 8, 8)
     )
 
     assert len(events) == 1
+
+
+def test_discovery_excludes_a_session_that_may_still_be_running() -> None:
+    source = Mock(spec=EventScheduleSource)
+    source.events.return_value = (
+        ScheduledEvent(
+            2026,
+            1,
+            "Australian Grand Prix",
+            "Australia",
+            "Melbourne",
+            (
+                ScheduledSession(
+                    SessionType.RACE,
+                    "Race",
+                    datetime(2026, 3, 8, 4, tzinfo=UTC),
+                ),
+            ),
+        ),
+    )
+
+    events = SessionDiscoveryService(source).list_available_events(
+        2026, as_of_utc=datetime(2026, 3, 8, 6, tzinfo=UTC)
+    )
+
+    assert events == ()

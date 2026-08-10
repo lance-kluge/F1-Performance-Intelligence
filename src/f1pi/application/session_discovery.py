@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from f1pi.application.ports import EventScheduleSource
 from f1pi.domain.models import ScheduledEvent
+
+SESSION_COMPLETION_DELAY = timedelta(hours=4)
 
 
 class SessionDiscoveryService:
@@ -18,7 +20,7 @@ class SessionDiscoveryService:
         *,
         as_of_utc: datetime | None = None,
     ) -> tuple[ScheduledEvent, ...]:
-        """Return events with at least one session that has already started."""
+        """Return events with at least one conservatively completed session."""
         cutoff = as_of_utc or datetime.now(UTC)
         cutoff = (
             cutoff.replace(tzinfo=UTC)
@@ -29,7 +31,9 @@ class SessionDiscoveryService:
         available: list[ScheduledEvent] = []
         for event in self._source.events(year):
             completed = tuple(
-                session for session in event.sessions if session.starts_at_utc <= cutoff
+                session
+                for session in event.sessions
+                if session.starts_at_utc + SESSION_COMPLETION_DELAY <= cutoff
             )
             if completed:
                 available.append(
