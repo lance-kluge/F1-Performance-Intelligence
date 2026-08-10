@@ -233,14 +233,14 @@ def test_comparison_works_without_optional_corner_metadata() -> None:
     assert "Sector 3" in result.explanation.text
 
 
-def test_corner_matching_rotates_position_trace_to_marker_coordinates() -> None:
+def test_corner_matching_ignores_display_rotation() -> None:
     session = MemorySession()
     session._corners = pd.DataFrame(
         {
             "number": [14],
             "letter": [""],
-            "x": [0.0],
-            "y": [250.0],
+            "x": [250.0],
+            "y": [0.0],
             "angle": [0.0],
             "distance": [250.0],
             "rotation": [90.0],

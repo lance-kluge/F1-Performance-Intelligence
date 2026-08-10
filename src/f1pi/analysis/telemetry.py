@@ -212,18 +212,6 @@ def _sector_numbers(
 
 def _marker_indices(telemetry: pd.DataFrame, corners: pd.DataFrame) -> NDArray[np.int64]:
     track_xy = telemetry[["lap_a_x", "lap_a_y"]].to_numpy(dtype=float)
-    rotation = corners.get("rotation")
-    if rotation is not None:
-        measured = rotation.dropna()
-        if not measured.empty:
-            radians = np.deg2rad(float(measured.iloc[0]))
-            rotation_matrix = np.array(
-                [
-                    [np.cos(radians), np.sin(radians)],
-                    [-np.sin(radians), np.cos(radians)],
-                ]
-            )
-            track_xy = track_xy @ rotation_matrix
     marker_xy = corners[["x", "y"]].to_numpy(dtype=float)
     differences = track_xy[np.newaxis, :, :] - marker_xy[:, np.newaxis, :]
     squared_distance = np.square(differences).sum(axis=2)
