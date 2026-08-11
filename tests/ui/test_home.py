@@ -50,11 +50,15 @@ def test_landing_page_renders_without_platform_or_fastf1() -> None:
     assert "See where the lap was won." in rendered_markup
     assert "illustrative data" in rendered_markup
     assert "Method over mythology" in rendered_markup
+    assert "turn its fastest laps into track-level evidence" in rendered_markup
+    assert "arrives in the next release" not in rendered_markup
 
 
 def test_stylesheet_contains_scoped_accessibility_rules() -> None:
     css = stylesheet()
 
     assert ".f1pi-wordmark" in css
+    assert ".f1pi-progress" in css
+    assert ".f1pi-results-guide" in css
     assert ":focus-visible" in css
     assert "prefers-reduced-motion" in css

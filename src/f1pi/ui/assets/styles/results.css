@@ -1,0 +1,60 @@
+/* Result navigation and focused analysis views. */
+
+.f1pi-results-guide {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.5rem;
+  align-items: baseline;
+  margin: 2.6rem 0 .85rem;
+}
+
+.f1pi-results-guide span {
+  color: var(--f1pi-text);
+  font-size: .72rem;
+  font-weight: 720;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.f1pi-results-guide p { margin: 0; color: var(--f1pi-muted); font-size: .78rem; }
+
+div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+  gap: .3rem;
+  padding: .35rem;
+  border: 1px solid var(--f1pi-line);
+  background: rgba(20, 20, 23, .86);
+}
+
+div[data-testid="stTabs"] [data-baseweb="tab"] {
+  min-height: 2.65rem;
+  padding: 0 1.2rem;
+  border-radius: .22rem;
+  color: var(--f1pi-muted);
+  font-size: .78rem;
+}
+
+div[data-testid="stTabs"] [aria-selected="true"] {
+  background: rgba(255, 79, 71, .11);
+  color: var(--f1pi-text);
+}
+
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { background: var(--f1pi-accent); }
+div[data-testid="stTabs"] [data-baseweb="tab-panel"] { padding-top: .3rem; }
+
+.f1pi-result-section { margin: 3.2rem 0 1rem; }
+.f1pi-result-section:first-child { margin-top: 2.4rem; }
+.f1pi-result-section > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.2rem;
+  align-items: baseline;
+}
+.f1pi-result-section h2 { font-size: clamp(1.45rem, 2.4vw, 2rem); }
+.f1pi-result-section p { margin: 0; color: var(--f1pi-muted); font-size: .76rem; }
+
+@media (max-width: 700px) {
+  .f1pi-results-guide { grid-template-columns: 1fr; gap: .35rem; }
+  .f1pi-result-section > div { grid-template-columns: 1fr; gap: .25rem; }
+  div[data-testid="stTabs"] [data-baseweb="tab-list"] { overflow-x: auto; }
+  div[data-testid="stTabs"] [data-baseweb="tab"] { flex: 0 0 auto; padding: 0 .8rem; }
+}
