@@ -42,6 +42,7 @@ class _CornerComplex:
     basin_start: float
     basin_end: float
     exit: float
+    wraps_finish_line: bool = False
 
 
 def analyze_performance(
@@ -66,7 +67,11 @@ def analyze_performance(
         turns = _detected_turns(distances, consensus, config)
 
     regions = _turn_regions(telemetry, turns, consensus, config)
-    complexes = _merge_regions(regions, config.minimum_straight_metres)
+    complexes = _merge_regions(
+        regions,
+        config.minimum_straight_metres,
+        float(distances[-1]),
+    )
     if not complexes:
         warnings.append("telemetry_corner_detection_failed")
         sections: tuple[PerformanceSectionComparison, ...] = (
@@ -338,7 +343,7 @@ def _sustained_runs(
 
 
 def _merge_regions(
-    regions: tuple[_TurnRegion, ...], minimum_straight_metres: float
+    regions: tuple[_TurnRegion, ...], minimum_straight_metres: float, lap_length: float
 ) -> tuple[_CornerComplex, ...]:
     output: list[_CornerComplex] = []
     for region in regions:
@@ -361,7 +366,33 @@ def _merge_regions(
                     exit=region.exit,
                 )
             )
-    return tuple(output)
+    if not output:
+        return ()
+    wraparound_length = lap_length - output[-1].exit + output[0].entry
+    if wraparound_length >= minimum_straight_metres:
+        return tuple(output)
+    if len(output) == 1:
+        only = output[0]
+        return (
+            _CornerComplex(
+                turns=only.turns,
+                entry=0.0,
+                basin_start=only.basin_start,
+                basin_end=only.basin_end,
+                exit=lap_length,
+            ),
+        )
+    first = output[0]
+    last = output[-1]
+    circular = _CornerComplex(
+        turns=(*last.turns, *first.turns),
+        entry=last.entry,
+        basin_start=last.basin_start,
+        basin_end=first.basin_end,
+        exit=first.exit,
+        wraps_finish_line=True,
+    )
+    return circular, *output[1:-1]
 
 
 def _build_sections(
@@ -373,6 +404,22 @@ def _build_sections(
     warnings: list[str],
 ) -> tuple[PerformanceSectionComparison, ...]:
     sections: list[PerformanceSectionComparison] = []
+    if complexes[0].wraps_finish_line:
+        circular = complexes[0]
+        sections.append(_corner_section(telemetry, circular, lap_a, lap_b, config, warnings))
+        previous = circular
+        for complex_ in complexes[1:]:
+            if complex_.entry > previous.exit:
+                sections.append(
+                    _straight_section(telemetry, previous, complex_, lap_a, lap_b, wraps=False)
+                )
+            sections.append(_corner_section(telemetry, complex_, lap_a, lap_b, config, warnings))
+            previous = complex_
+        if circular.entry > previous.exit:
+            sections.append(
+                _straight_section(telemetry, previous, circular, lap_a, lap_b, wraps=False)
+            )
+        return tuple(sections)
     last = complexes[-1]
     first = complexes[0]
     if last.exit < float(telemetry["distance_metres"].iloc[-1]) or first.entry > 0:
@@ -396,6 +443,10 @@ def _corner_section(
     config: SegmentationConfig,
     warnings: list[str],
 ) -> PerformanceSectionComparison:
+    if complex_.wraps_finish_line:
+        return _circular_corner_section(
+            telemetry, complex_, lap_a, lap_b, config, warnings
+        )
     references = tuple(region.turn for region in complex_.turns)
     label = _complex_label(references)
     section_id = _corner_id(references)
@@ -473,6 +524,101 @@ def _corner_section(
             config,
             exit_apex=complex_.turns[-1].apex,
         ),
+    )
+
+
+def _circular_corner_section(
+    telemetry: pd.DataFrame,
+    complex_: _CornerComplex,
+    lap_a: LapSummary,
+    lap_b: LapSummary,
+    config: SegmentationConfig,
+    warnings: list[str],
+) -> PerformanceSectionComparison:
+    split = next(
+        index
+        for index in range(1, len(complex_.turns))
+        if complex_.turns[index].apex < complex_.turns[index - 1].apex
+    )
+    tail_turns = complex_.turns[:split]
+    head_turns = complex_.turns[split:]
+    lap_length = float(telemetry["distance_metres"].iloc[-1])
+    tail = _CornerComplex(
+        turns=tail_turns,
+        entry=complex_.entry,
+        basin_start=min(turn.basin_start for turn in tail_turns),
+        basin_end=max(turn.basin_end for turn in tail_turns),
+        exit=lap_length,
+    )
+    head = _CornerComplex(
+        turns=head_turns,
+        entry=0.0,
+        basin_start=min(turn.basin_start for turn in head_turns),
+        basin_end=max(turn.basin_end for turn in head_turns),
+        exit=complex_.exit,
+    )
+    tail_section = _corner_section(telemetry, tail, lap_a, lap_b, config, warnings)
+    head_section = _corner_section(telemetry, head, lap_a, lap_b, config, warnings)
+    references = tuple(turn.turn for turn in complex_.turns)
+    delta = _interval_delta(telemetry, complex_.entry, complex_.exit, wraps=True)
+    return PerformanceSectionComparison(
+        section_id=_corner_id(references),
+        kind=SectionKind.CORNER_COMPLEX,
+        label=_complex_label(references),
+        start_distance_metres=complex_.entry,
+        end_distance_metres=complex_.exit,
+        wraps_finish_line=True,
+        sector_numbers=_sector_numbers(telemetry, complex_.entry, complex_.exit, True),
+        delta_seconds=delta,
+        advantaged_driver=_advantaged_driver(delta, lap_a, lap_b),
+        magnitude_seconds=abs(delta),
+        confidence=_lowest_confidence(tuple(turn.confidence for turn in references)),
+        turns=(*tail_section.turns, *head_section.turns),
+        phases=(*tail_section.phases, *head_section.phases),
+        lap_a_corner_metrics=_combine_corner_metrics(
+            tail_section.lap_a_corner_metrics,
+            head_section.lap_a_corner_metrics,
+        ),
+        lap_b_corner_metrics=_combine_corner_metrics(
+            tail_section.lap_b_corner_metrics,
+            head_section.lap_b_corner_metrics,
+        ),
+    )
+
+
+def _combine_corner_metrics(
+    tail: DriverCornerMetrics | None, head: DriverCornerMetrics | None
+) -> DriverCornerMetrics | None:
+    if tail is None or head is None:
+        return None
+    minimum = min((tail, head), key=lambda metrics: metrics.minimum_speed_kph)
+    gears = [gear for gear in (tail.minimum_gear, head.minimum_gear) if gear is not None]
+    return DriverCornerMetrics(
+        entry_speed_kph=tail.entry_speed_kph,
+        minimum_speed_kph=minimum.minimum_speed_kph,
+        minimum_speed_distance_metres=minimum.minimum_speed_distance_metres,
+        exit_speed_kph=head.exit_speed_kph,
+        brake_onset_distance_metres=(
+            tail.brake_onset_distance_metres
+            if tail.brake_onset_distance_metres is not None
+            else head.brake_onset_distance_metres
+        ),
+        throttle_lift_distance_metres=(
+            tail.throttle_lift_distance_metres
+            if tail.throttle_lift_distance_metres is not None
+            else head.throttle_lift_distance_metres
+        ),
+        throttle_reapplication_distance_metres=(
+            tail.throttle_reapplication_distance_metres
+            if tail.throttle_reapplication_distance_metres is not None
+            else head.throttle_reapplication_distance_metres
+        ),
+        full_throttle_distance_metres=(
+            tail.full_throttle_distance_metres
+            if tail.full_throttle_distance_metres is not None
+            else head.full_throttle_distance_metres
+        ),
+        minimum_gear=min(gears) if gears else None,
     )
 
 

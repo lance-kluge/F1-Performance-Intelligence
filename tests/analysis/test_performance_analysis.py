@@ -111,6 +111,65 @@ def test_official_segmentation_groups_chicane_and_reconciles_every_interval() ->
     assert quality.reconciliation_error_seconds < 1e-12
 
 
+def test_short_start_finish_interval_merges_into_circular_corner_complex() -> None:
+    telemetry = _telemetry()
+    distance = telemetry["distance_metres"].to_numpy(dtype=float)
+    speed = (
+        265.0
+        - 150.0 * np.exp(-np.square((distance - 100.0) / 30.0))
+        - 150.0 * np.exp(-np.square((distance - 900.0) / 30.0))
+    )
+    corner = ((distance >= 65.0) & (distance <= 135.0)) | (
+        (distance >= 865.0) & (distance <= 935.0)
+    )
+    throttle = np.where(corner, 35.0, 100.0)
+    for side in ("lap_a", "lap_b"):
+        telemetry[f"{side}_speed_kph"] = speed
+        telemetry[f"{side}_throttle_percent"] = throttle
+        telemetry[f"{side}_brake"] = pd.array(np.zeros(len(distance)), dtype="boolean")
+    corners = pd.DataFrame(
+        {
+            "number": [1, 2],
+            "letter": ["", ""],
+            "x": [100.0, 900.0],
+            "y": [0.0, 0.0],
+        }
+    )
+
+    sections, quality = analyze_performance(
+        telemetry,
+        corners,
+        _lap("NOR", 90.0),
+        _lap("VER", 90.4),
+        SegmentationConfig(minimum_straight_metres=200.0),
+    )
+
+    circular = next(section for section in sections if section.wraps_finish_line)
+    assert circular.kind is SectionKind.CORNER_COMPLEX
+    assert [turn.turn.number for turn in circular.turns] == [2, 1]
+    assert sum(phase.delta_seconds for phase in circular.phases) == pytest.approx(
+        circular.delta_seconds
+    )
+    assert sum(turn.delta_seconds for turn in circular.turns) == pytest.approx(
+        circular.delta_seconds
+    )
+    assert all(not section.wraps_finish_line for section in sections if section is not circular)
+    assert all(
+        section.end_distance_metres - section.start_distance_metres >= 200.0
+        for section in sections
+        if section.kind is SectionKind.STRAIGHT
+    )
+    assert sum(
+        (
+            1000.0 - section.start_distance_metres + section.end_distance_metres
+            if section.wraps_finish_line
+            else section.end_distance_metres - section.start_distance_metres
+        )
+        for section in sections
+    ) == pytest.approx(1000.0)
+    assert quality.reconciliation_error_seconds < 1e-12
+
+
 def test_throttle_reapplication_requires_a_rising_threshold_crossing() -> None:
     telemetry = _telemetry()
     telemetry.loc[
