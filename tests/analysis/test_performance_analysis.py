@@ -168,6 +168,26 @@ def test_segmentation_is_invariant_when_comparison_order_is_reversed() -> None:
     )
 
 
+def test_same_driver_section_advantages_include_lap_numbers() -> None:
+    sections, _ = analyze_performance(
+        _telemetry(),
+        _corners(),
+        _lap("NOR", 90.0),
+        replace(_lap("NOR", 90.4), lap_number=2),
+        SegmentationConfig(),
+    )
+
+    assert {
+        section.advantaged_driver for section in sections if section.delta_seconds != 0.0
+    } == {"NOR lap 1"}
+    assert {
+        phase.advantaged_driver
+        for section in sections
+        for phase in section.phases
+        if phase.delta_seconds != 0.0
+    } == {"NOR lap 1"}
+
+
 def test_telemetry_only_fallback_has_stable_ids_and_lower_confidence() -> None:
     sections, quality = analyze_performance(
         _telemetry(),

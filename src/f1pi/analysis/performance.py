@@ -666,7 +666,10 @@ def _sector_numbers(
 def _advantaged_driver(delta: float, lap_a: LapSummary, lap_b: LapSummary) -> str | None:
     if abs(delta) <= 1e-12:
         return None
-    return lap_a.driver if delta > 0 else lap_b.driver
+    advantaged = lap_a if delta > 0 else lap_b
+    if lap_a.driver == lap_b.driver:
+        return f"{advantaged.driver} lap {advantaged.lap_number}"
+    return advantaged.driver
 
 
 def _complex_label(turns: tuple[TurnReference, ...]) -> str:
