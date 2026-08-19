@@ -124,8 +124,6 @@ def _legacy_corners(
         if section.kind is not SectionKind.CORNER_COMPLEX:
             continue
         for turn in section.turns:
-            if turn.turn.number is None:
-                continue
             output.append(
                 CornerComparison(
                     number=turn.turn.number,
@@ -136,6 +134,7 @@ def _legacy_corners(
                     lap_b_min_speed_kph=turn.lap_b_metrics.minimum_speed_kph,
                     lap_a_full_throttle_metres=turn.lap_a_metrics.full_throttle_distance_metres,
                     lap_b_full_throttle_metres=turn.lap_b_metrics.full_throttle_distance_metres,
+                    label=turn.turn.label,
                 )
             )
     return tuple(output)

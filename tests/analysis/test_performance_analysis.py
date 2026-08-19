@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from f1pi.analysis.lap_analysis.lap_comparison_engine import _legacy_corners
 from f1pi.analysis.models import (
     AnalysisQuality,
     Confidence,
@@ -258,9 +259,13 @@ def test_telemetry_only_fallback_has_stable_ids_and_lower_confidence() -> None:
     corner_ids = [
         section.section_id for section in sections if section.kind is SectionKind.CORNER_COMPLEX
     ]
+    presented_corners = _legacy_corners(sections)
 
     assert corner_ids
     assert corner_ids[0].startswith("corner:detected-")
+    assert presented_corners
+    assert presented_corners[0].number is None
+    assert presented_corners[0].name.startswith("Detected corner")
     assert quality.segmentation_source is SegmentationSource.TELEMETRY_ONLY
     assert quality.confidence is Confidence.MEDIUM
     assert "corner_metadata_unavailable" in quality.warnings
