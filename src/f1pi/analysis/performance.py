@@ -608,16 +608,8 @@ def _combine_corner_metrics(
             if tail.throttle_lift_distance_metres is not None
             else head.throttle_lift_distance_metres
         ),
-        throttle_reapplication_distance_metres=(
-            tail.throttle_reapplication_distance_metres
-            if tail.throttle_reapplication_distance_metres is not None
-            else head.throttle_reapplication_distance_metres
-        ),
-        full_throttle_distance_metres=(
-            tail.full_throttle_distance_metres
-            if tail.full_throttle_distance_metres is not None
-            else head.full_throttle_distance_metres
-        ),
+        throttle_reapplication_distance_metres=head.throttle_reapplication_distance_metres,
+        full_throttle_distance_metres=head.full_throttle_distance_metres,
         minimum_gear=min(gears) if gears else None,
     )
 

@@ -154,6 +154,9 @@ def test_short_start_finish_interval_merges_into_circular_corner_complex() -> No
     assert sum(turn.delta_seconds for turn in circular.turns) == pytest.approx(
         circular.delta_seconds
     )
+    assert circular.lap_a_corner_metrics is not None
+    assert circular.lap_a_corner_metrics.throttle_reapplication_distance_metres is None
+    assert circular.lap_a_corner_metrics.full_throttle_distance_metres is None
     assert all(not section.wraps_finish_line for section in sections if section is not circular)
     assert all(
         section.end_distance_metres - section.start_distance_metres >= 200.0
