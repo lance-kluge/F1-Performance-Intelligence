@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from f1pi.analysis.models import LapComparison
+from f1pi.analysis.models import Confidence, LapComparison
 from f1pi.ui.components.results.insights import render_loss_analysis
 from f1pi.ui.components.results.overview import render_overview
 from f1pi.ui.components.results.summary import render_summary
@@ -22,6 +22,7 @@ PLOT_CONFIG = {
 def render_results(session: LoadedSession, comparison: LapComparison) -> None:
     """Render a summary followed by three focused, navigable result views."""
     render_summary(session, comparison)
+    _render_analysis_quality(comparison)
     st.html(
         """
         <div class="f1pi-results-guide">
@@ -44,6 +45,17 @@ def render_results(session: LoadedSession, comparison: LapComparison) -> None:
         render_telemetry(comparison, PLOT_CONFIG)
     with losses:
         render_loss_analysis(comparison, PLOT_CONFIG)
+
+
+def _render_analysis_quality(comparison: LapComparison) -> None:
+    quality = comparison.quality
+    if quality.confidence is Confidence.HIGH and not quality.warnings:
+        return
+    details = "; ".join(warning.replace("_", " ") for warning in quality.warnings)
+    message = f"{quality.confidence.value.title()}-confidence analysis"
+    if details:
+        message += f": {details}."
+    st.warning(message, icon=":material/warning:")
 
 
 __all__ = ["PLOT_CONFIG", "render_results"]

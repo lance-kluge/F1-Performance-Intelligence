@@ -42,6 +42,7 @@ def test_guided_analysis_workflow_uses_specific_lap_and_renders_results() -> Non
     assert "Turn 3" in rendered_markup
     assert "Current analysis" in rendered_markup
     assert "Explore the comparison" in rendered_markup
+    assert any("Low-confidence analysis" in warning.value for warning in app.warning)
     assert not any("Left of center" in caption.value for caption in app.caption)
     assert len(app.get("plotly_chart")) == 7
 
