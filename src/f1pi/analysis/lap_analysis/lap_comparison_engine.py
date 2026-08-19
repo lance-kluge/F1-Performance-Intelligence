@@ -1,5 +1,7 @@
 """Orchestration for a complete, presentation-neutral lap comparison."""
 
+import math
+
 import pandas as pd
 
 from f1pi.analysis.lap_analysis.analysis_session import AnalysisSession
@@ -36,7 +38,18 @@ class LapComparisonEngine:
         summary_provider: SummaryNarrativeProvider | None = None,
     ) -> None:
         self._config = config or SynchronizationConfig()
+        default_segmentation = SegmentationConfig()
+        full_throttle_percent = self._config.full_throttle_percent
         self._segmentation_config = segmentation_config or SegmentationConfig(
+            throttle_reapplication_percent=min(
+                default_segmentation.throttle_reapplication_percent,
+                full_throttle_percent / 2,
+            ),
+            lift_threshold_percent=min(
+                default_segmentation.lift_threshold_percent,
+                math.nextafter(full_throttle_percent, 0.0),
+            ),
+            full_throttle_percent=full_throttle_percent,
             minimum_straight_metres=self._config.minimum_straight_metres,
         )
         self._summary_provider = summary_provider or DeterministicSummaryNarrativeProvider()

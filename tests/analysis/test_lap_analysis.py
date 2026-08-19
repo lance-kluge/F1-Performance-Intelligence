@@ -272,7 +272,7 @@ def test_comparison_works_without_optional_corner_metadata() -> None:
 def test_engine_accepts_valid_synchronization_full_throttle_threshold() -> None:
     engine = LapComparisonEngine(SynchronizationConfig(full_throttle_percent=90.0))
 
-    assert engine is not None
+    assert engine._segmentation_config.full_throttle_percent == 90.0
 
 
 def test_corner_matching_ignores_display_rotation() -> None:
