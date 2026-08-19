@@ -17,8 +17,9 @@ from f1pi.analysis.models import (
     SegmentationConfig,
     SegmentationSource,
     SummaryFinding,
+    TurnReference,
 )
-from f1pi.analysis.performance import analyze_performance
+from f1pi.analysis.performance import _turn_regions, analyze_performance
 from f1pi.analysis.summary import SummaryNarrativeProvider, summarize_performance
 
 
@@ -196,6 +197,31 @@ def test_throttle_reapplication_requires_a_rising_threshold_crossing() -> None:
 
     assert corner.lap_a_corner_metrics is not None
     assert corner.lap_a_corner_metrics.throttle_reapplication_distance_metres == 270.0
+
+
+def test_speed_fallback_selects_last_pre_apex_maximum() -> None:
+    distance = np.arange(101, dtype=float)
+    consensus = np.concatenate(
+        (
+            np.linspace(250.0, 300.0, 21),
+            np.full(31, 300.0),
+            np.linspace(295.0, 100.0, 29),
+            np.linspace(105.0, 250.0, 20),
+        )
+    )
+    telemetry = pd.DataFrame({"distance_metres": distance})
+    for side in ("lap_a", "lap_b"):
+        telemetry[f"{side}_brake"] = pd.array([pd.NA] * len(distance), dtype="boolean")
+        telemetry[f"{side}_throttle_percent"] = np.nan
+
+    regions = _turn_regions(
+        telemetry,
+        (TurnReference(1, "", "Turn 1", 80.0, Confidence.HIGH),),
+        consensus,
+        SegmentationConfig(),
+    )
+
+    assert regions[0].entry == 51.0
 
 
 def test_segmentation_is_invariant_when_comparison_order_is_reversed() -> None:

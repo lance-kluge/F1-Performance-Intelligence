@@ -239,7 +239,8 @@ def _turn_regions(
             else (apex_index + apex_indices[offset + 1]) // 2
         )
         basin_left, basin_right = _speed_basin(consensus, apex_index, left, right, config)
-        fallback_entry = left + int(np.argmax(consensus[left : apex_index + 1]))
+        pre_apex_speed = consensus[left : apex_index + 1]
+        fallback_entry = apex_index - int(np.argmax(pre_apex_speed[::-1]))
         fallback_exit = apex_index + int(np.argmax(consensus[apex_index : right + 1]))
         entries = [
             event
