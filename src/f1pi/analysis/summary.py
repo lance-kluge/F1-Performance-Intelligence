@@ -234,7 +234,7 @@ def _evidence(
                         "m",
                     ),
                 )
-    else:
+    elif section.kind is SectionKind.STRAIGHT:
         straight_a = section.lap_a_straight_metrics
         straight_b = section.lap_b_straight_metrics
         if straight_a is not None and straight_b is not None:

@@ -75,7 +75,7 @@ def analyze_performance(
     if not complexes:
         warnings.append("telemetry_corner_detection_failed")
         sections: tuple[PerformanceSectionComparison, ...] = (
-            _whole_lap_straight(telemetry, lap_a, lap_b),
+            _unsegmented_lap_section(telemetry, lap_a, lap_b),
         )
     else:
         sections = _build_sections(telemetry, complexes, lap_a, lap_b, config, warnings)
@@ -650,15 +650,15 @@ def _straight_section(
     )
 
 
-def _whole_lap_straight(
+def _unsegmented_lap_section(
     telemetry: pd.DataFrame, lap_a: LapSummary, lap_b: LapSummary
 ) -> PerformanceSectionComparison:
     start = 0.0
     end = float(telemetry["distance_metres"].iloc[-1])
     delta = _interval_delta(telemetry, start, end)
     return PerformanceSectionComparison(
-        section_id="straight:lap",
-        kind=SectionKind.STRAIGHT,
+        section_id="unsegmented:lap",
+        kind=SectionKind.UNSEGMENTED,
         label="Lap",
         start_distance_metres=start,
         end_distance_metres=end,
@@ -668,8 +668,6 @@ def _whole_lap_straight(
         advantaged_driver=_advantaged_driver(delta, lap_a, lap_b),
         magnitude_seconds=abs(delta),
         confidence=Confidence.LOW,
-        lap_a_straight_metrics=_straight_metrics(telemetry, "lap_a", start, end, False),
-        lap_b_straight_metrics=_straight_metrics(telemetry, "lap_b", start, end, False),
     )
 
 

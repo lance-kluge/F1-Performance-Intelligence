@@ -20,6 +20,7 @@ class SegmentationSource(StrEnum):
 class SectionKind(StrEnum):
     CORNER_COMPLEX = "corner_complex"
     STRAIGHT = "straight"
+    UNSEGMENTED = "unsegmented"
 
 
 class CornerPhaseKind(StrEnum):

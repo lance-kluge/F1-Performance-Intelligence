@@ -274,6 +274,39 @@ def test_telemetry_only_fallback_has_stable_ids_and_lower_confidence() -> None:
     assert "corner_metadata_unavailable" in quality.warnings
 
 
+def test_failed_corner_detection_does_not_create_straight_evidence() -> None:
+    telemetry = _telemetry()
+    telemetry["lap_a_speed_kph"] = 200.0
+    telemetry["lap_b_speed_kph"] = 199.0
+    lap_a = _lap("NOR", 90.0)
+    lap_b = _lap("VER", 90.4)
+    sections, quality = analyze_performance(
+        telemetry,
+        pd.DataFrame(),
+        lap_a,
+        lap_b,
+        SegmentationConfig(),
+    )
+    summary, _ = summarize_performance(
+        lap_a,
+        lap_b,
+        (
+            SectorComparison(1, 30.0, 30.1, 0.1),
+            SectorComparison(2, 30.0, 30.1, 0.1),
+            SectorComparison(3, 30.0, 30.2, 0.2),
+        ),
+        sections,
+        quality,
+        SegmentationConfig(),
+        _FakeProvider(),
+    )
+
+    assert [section.kind for section in sections] == [SectionKind.UNSEGMENTED]
+    assert sections[0].lap_a_straight_metrics is None
+    assert summary.findings
+    assert summary.findings[0].evidence == ()
+
+
 def test_missing_optional_channels_return_none_metrics_and_warnings() -> None:
     telemetry = _telemetry()
     for side in ("lap_a", "lap_b"):
