@@ -78,6 +78,7 @@ def _car_frame(start: float, end: float, *, speed: float, throttle_progress: flo
             "speed": speed,
             "throttle": np.where(progress >= throttle_progress, 100, 55),
             "brake": progress < 0.5,
+            "n_gear": np.where(progress < 0.5, 4, 7),
         }
     )
 
@@ -108,6 +109,8 @@ def test_complete_comparison_is_spatially_synchronized_and_explained() -> None:
     assert result.telemetry["time_delta_seconds"].iloc[-1] == pytest.approx(0.4)
     assert result.telemetry["local_time_delta_seconds"].gt(0).all()
     assert result.telemetry["lap_a_brake"].dtype == pd.BooleanDtype()
+    assert result.telemetry["lap_a_gear"].dtype == pd.Int64Dtype()
+    assert set(result.telemetry["lap_a_gear"].dropna()) == {4, 7}
     assert result.telemetry["sector"].dropna().unique().tolist() == [1.0, 2.0, 3.0]
 
     assert len(result.corners) == 1
@@ -264,6 +267,12 @@ def test_comparison_works_without_optional_corner_metadata() -> None:
     assert result.corners == ()
     assert result.explanation.key_corner is None
     assert "Sector 3" in result.explanation.text
+
+
+def test_engine_accepts_valid_synchronization_full_throttle_threshold() -> None:
+    engine = LapComparisonEngine(SynchronizationConfig(full_throttle_percent=90.0))
+
+    assert engine._segmentation_config.full_throttle_percent == 90.0
 
 
 def test_corner_matching_ignores_display_rotation() -> None:

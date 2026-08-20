@@ -33,6 +33,7 @@ def prepare_trace(
     speed = _interpolate(car, "speed", target_time, required=True)
     throttle = _interpolate(car, "throttle", target_time)
     brake = _interpolate(car, "brake", target_time)
+    gear = _step_interpolate(car, "n_gear", target_time)
     x = _interpolate(position, "x", target_time, required=True)
     y = _interpolate(position, "y", target_time, required=True)
 
@@ -49,6 +50,7 @@ def prepare_trace(
         speed=speed[keep],
         throttle=throttle[keep],
         brake=brake[keep],
+        gear=gear[keep],
         x=x[keep],
         y=y[keep],
     )
@@ -63,6 +65,8 @@ def synchronize_traces(
     progress = np.linspace(0.0, 1.0, config.sample_count)
     lap_a_brake = _spatial_interpolate(lap_a, lap_a.brake, progress)
     lap_b_brake = _spatial_interpolate(lap_b, lap_b.brake, progress)
+    lap_a_gear = _spatial_step_interpolate(lap_a, lap_a.gear, progress)
+    lap_b_gear = _spatial_step_interpolate(lap_b, lap_b.gear, progress)
     synchronized = pd.DataFrame(
         {
             "distance_metres": progress * lap_a.length_metres,
@@ -75,6 +79,8 @@ def synchronize_traces(
             "lap_b_throttle_percent": _spatial_interpolate(lap_b, lap_b.throttle, progress),
             "lap_a_brake": _nullable_brake(lap_a_brake),
             "lap_b_brake": _nullable_brake(lap_b_brake),
+            "lap_a_gear": _nullable_integer(lap_a_gear),
+            "lap_b_gear": _nullable_integer(lap_b_gear),
             "lap_a_x": _spatial_interpolate(lap_a, lap_a.x, progress),
             "lap_a_y": _spatial_interpolate(lap_a, lap_a.y, progress),
             "lap_b_x": _spatial_interpolate(lap_b, lap_b.x, progress),
@@ -98,6 +104,12 @@ def _nullable_brake(values: NDArray[np.float64]) -> pd.arrays.BooleanArray:
     brake = pd.array(values >= 0.5, dtype="boolean")
     brake[np.isnan(values)] = pd.NA
     return brake
+
+
+def _nullable_integer(values: NDArray[np.float64]) -> pd.arrays.IntegerArray:
+    output = pd.array(np.rint(values), dtype="Int64")
+    output[np.isnan(values)] = pd.NA
+    return output
 
 
 def compare_corners(
@@ -202,6 +214,10 @@ def _interpolate(
     *,
     required: bool = False,
 ) -> NDArray[np.float64]:
+    if column not in frame:
+        if required:
+            raise TelemetryNotAvailableError(f"{column} telemetry is unavailable")
+        return np.full(len(target_time), np.nan)
     valid = frame.loc[
         frame["session_time_ns"].notna() & frame[column].notna(),
         ["session_time_ns", column],
@@ -218,6 +234,29 @@ def _interpolate(
     return np.interp(target_time, time, values, left=np.nan, right=np.nan)
 
 
+def _step_interpolate(
+    frame: pd.DataFrame,
+    column: str,
+    target_time: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    if column not in frame:
+        return np.full(len(target_time), np.nan)
+    valid = frame.loc[
+        frame["session_time_ns"].notna() & frame[column].notna(),
+        ["session_time_ns", column],
+    ].sort_values("session_time_ns")
+    valid = valid.drop_duplicates("session_time_ns", keep="last")
+    if valid.empty:
+        return np.full(len(target_time), np.nan)
+    time = valid["session_time_ns"].to_numpy(dtype=float)
+    values = valid[column].astype(float).to_numpy()
+    indices = np.searchsorted(time, target_time, side="right") - 1
+    output = np.full(len(target_time), np.nan)
+    covered = (indices >= 0) & (target_time <= time[-1])
+    output[covered] = values[indices[covered]]
+    return output
+
+
 def _spatial_interpolate(
     trace: PreparedTrace,
     values: NDArray[np.float64],
@@ -228,6 +267,24 @@ def _spatial_interpolate(
     if valid.sum() < 2:
         return np.full(len(progress), np.nan)
     return np.interp(progress, trace_progress[valid], values[valid], left=np.nan, right=np.nan)
+
+
+def _spatial_step_interpolate(
+    trace: PreparedTrace,
+    values: NDArray[np.float64],
+    progress: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    trace_progress = trace.distance / trace.length_metres
+    valid = ~np.isnan(values)
+    if not valid.any():
+        return np.full(len(progress), np.nan)
+    valid_progress = trace_progress[valid]
+    valid_values = values[valid]
+    indices = np.searchsorted(valid_progress, progress, side="right") - 1
+    output = np.full(len(progress), np.nan)
+    covered = (indices >= 0) & (progress <= valid_progress[-1])
+    output[covered] = valid_values[indices[covered]]
+    return output
 
 
 def _local_delta_change(

@@ -24,7 +24,10 @@ Caller
   │
   └── SessionRepository ──────────────────────────── typed DataFrames
             │
-            └── LapAnalysisService ── LapComparisonEngine ── chart-ready comparison
+            └── LapAnalysisService ── LapComparisonEngine ── synchronized trace
+                                              │
+                                              ├── performance segmentation + attribution
+                                              └── structured summary + compatibility projections
 ```
 
 Native FastF1 `Session`, `Laps`, `Lap`, and `Telemetry` objects are intentionally available
@@ -48,6 +51,12 @@ live under `tests/integration/`. The UI depends on application services and immu
 records; it does not duplicate lap calculations or reach into Parquet and SQLite adapters.
 Future analysis and simulation packages can be added beside these layers without mixing their
 code into the ingestion foundation.
+
+The performance analyzer is a pure in-memory calculation over the active snapshot. It does not
+persist derived sections or increment the storage schema: existing normalized speed, throttle,
+brake, gear, and position channels are sufficient. Immutable section, metric, finding, and quality
+records form the frontend handoff, while the earlier corner, straight, and explanation records are
+derived compatibility views.
 
 ## Session discovery
 

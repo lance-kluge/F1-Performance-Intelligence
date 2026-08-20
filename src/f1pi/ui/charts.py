@@ -137,7 +137,12 @@ def track_figure(comparison: LapComparison) -> go.Figure:
                 mode="markers+text",
                 name="Turns",
                 legendrank=40,
-                text=[f"T{corner.number}{corner.letter}" for corner in comparison.corners],
+                text=[
+                    f"T{corner.number}{corner.letter}"
+                    if corner.number is not None
+                    else corner.name
+                    for corner in comparison.corners
+                ],
                 textposition="top center",
                 marker={
                     "color": PANEL_COLOR,

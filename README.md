@@ -3,8 +3,8 @@
 F1 Performance Intelligence is a typed, local-first Python foundation for Formula 1
 performance analysis. It ingests complete FastF1 sessions, normalizes them into stable pandas
 schemas, writes immutable Parquet snapshots, and uses SQLite to select the active snapshot.
-The headless lap analyzer returns synchronized telemetry, track coordinates, timing deltas, and
-an evidence-backed explanation of the largest loss.
+The headless lap analyzer returns synchronized telemetry, track coordinates, exact section and
+corner-phase attribution, quality metadata, and an evidence-backed performance summary.
 
 The analytical package is presentation-neutral. A Streamlit interface builds on these contracts
 without owning analytical logic; tire modeling, strategy simulation, and the race-engineer
@@ -92,10 +92,18 @@ comparison = platform.lap_analysis.compare(
     LapSelection.fastest("VER"),
 )
 
-print(comparison.delta_seconds)       # lap B - lap A
+print(comparison.delta_seconds)  # lap B - lap A
 print(comparison.explanation.text)
-print(comparison.telemetry.head())    # speed, inputs, track, and live delta
+print(comparison.telemetry.head())  # speed, inputs, track, and live delta
+print(comparison.summary.findings)  # structured losses, gains, and supporting evidence
+print(comparison.sections)  # non-overlapping corner complexes and straights
 ```
+
+`comparison.sections` covers the complete lap exactly once. Its signed section deltas reconcile
+to the finish delta, while corner complexes expose entry, apex, and exit attribution plus
+per-driver metrics. `comparison.quality` identifies telemetry-only segmentation, missing optional
+channels, and any degraded result. The earlier `corners`, `straights`, and `explanation` fields
+remain available for compatible consumers.
 
 Use `LapSelection.numbered("NOR", 12)` to compare an explicit lap. Selections reject laps FastF1
 marks inaccurate by default; pass `accurate_only=False` when an inaccurate numbered lap is

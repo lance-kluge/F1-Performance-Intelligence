@@ -145,9 +145,9 @@ def render_final_callout() -> None:
     st.html(
         """
         <section class="f1pi-final-callout" aria-labelledby="final-title">
-          <p class="f1pi-label">Lap analysis workspace</p>
+          <p class="f1pi-label">Interactive lap analysis</p>
           <h2 id="final-title">Every tenth has a location.</h2>
-          <p>The interactive analyzer arrives in the next release.</p>
+          <p>Choose a completed session and turn its fastest laps into track-level evidence.</p>
         </section>
         """
     )

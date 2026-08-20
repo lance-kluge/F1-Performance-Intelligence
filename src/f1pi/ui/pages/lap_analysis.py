@@ -13,6 +13,14 @@ from f1pi.domain.models import ScheduledEvent, ScheduledSession, SessionKey
 from f1pi.ui.analysis_facade import AnalysisFacade
 from f1pi.ui.components.layout import render_footer, render_wordmark
 from f1pi.ui.components.results import render_results
+from f1pi.ui.components.workspace import (
+    render_comparison_ready,
+    render_loaded_session,
+    render_session_context,
+    render_step_header,
+    render_workflow_progress,
+    render_workspace_intro,
+)
 from f1pi.ui.errors import user_error
 from f1pi.ui.formatting import FASTEST_LAP, SPECIFIC_LAP, lap_selection
 from f1pi.ui.models import DriverOption, LoadedSession
@@ -32,16 +40,8 @@ def available_events(year: int) -> tuple[ScheduledEvent, ...]:
 def render_lap_analysis() -> None:
     """Render the staged loading, selection, and results workflow."""
     render_wordmark(section="Lap analysis")
-    st.html(
-        """
-        <section class="f1pi-analysis-intro" aria-labelledby="analysis-title">
-          <p class="f1pi-eyebrow"><span></span> Interactive workspace</p>
-          <h1 id="analysis-title">Compare the lap, not just the time.</h1>
-          <p>Select a completed session, load its telemetry, then inspect where two accurate
-          laps gained and lost performance around the circuit.</p>
-        </section>
-        """
-    )
+    render_workspace_intro()
+    render_workflow_progress(_active_step())
     facade = get_analysis_facade()
     selection = _render_session_selection()
     if selection is None:
@@ -55,15 +55,21 @@ def render_lap_analysis() -> None:
 
 
 def _render_session_selection() -> tuple[SessionKey, ScheduledEvent, ScheduledSession] | None:
-    st.html('<div class="f1pi-stage"><span>01</span><h2>Choose a session</h2></div>')
+    render_step_header(
+        1,
+        "Choose a session",
+        "Completed sessions from 2018 onward include the telemetry channels used here.",
+    )
     current_year = datetime.now(UTC).year
     years = tuple(range(current_year, MIN_TELEMETRY_YEAR - 1, -1))
-    season = st.selectbox(
-        "Season",
-        years,
-        key="f1pi_season",
-        on_change=_clear_loaded_state,
-    )
+    season_column, event_column, session_column = st.columns((0.58, 1.42, 1), gap="medium")
+    with season_column:
+        season = st.selectbox(
+            "Season",
+            years,
+            key="f1pi_season",
+            on_change=_clear_loaded_state,
+        )
     try:
         with st.spinner("Loading the season schedule…"):
             events = available_events(season)
@@ -74,20 +80,22 @@ def _render_session_selection() -> tuple[SessionKey, ScheduledEvent, ScheduledSe
         st.info("No completed telemetry sessions are available for this season yet.")
         return None
 
-    event = st.selectbox(
-        "Race weekend",
-        events,
-        format_func=_event_label,
-        key="f1pi_event",
-        on_change=_clear_loaded_state,
-    )
-    scheduled_session = st.selectbox(
-        "Session",
-        event.sessions,
-        format_func=_session_label,
-        key="f1pi_session",
-        on_change=_clear_loaded_state,
-    )
+    with event_column:
+        event = st.selectbox(
+            "Race weekend",
+            events,
+            format_func=_event_label,
+            key="f1pi_event",
+            on_change=_clear_loaded_state,
+        )
+    with session_column:
+        scheduled_session = st.selectbox(
+            "Session",
+            event.sessions,
+            format_func=_session_label,
+            key="f1pi_session",
+            on_change=_clear_loaded_state,
+        )
     return (
         SessionKey(season, event.round_number, scheduled_session.session_type),
         event,
@@ -103,16 +111,10 @@ def _load_or_restore_session(
 ) -> LoadedSession | None:
     loaded = _loaded_session_from_state(st.session_state.get(LOADED_SESSION_KEY), key)
     if loaded is not None:
-        st.success(
-            f"{loaded.metadata.event_name} · {loaded.metadata.session_name} is ready"
-            + (" from the local snapshot." if loaded.snapshot_reused else ".")
-        )
+        render_loaded_session(loaded)
         return loaded
 
-    st.caption(
-        f"Round {event.round_number} · {session.name} · "
-        f"{session.starts_at_utc:%d %b %Y, %H:%M UTC}"
-    )
+    render_session_context(event, session)
     if not st.button("Load session telemetry", type="primary", width="stretch"):
         return None
     try:
@@ -126,16 +128,21 @@ def _load_or_restore_session(
         return None
     st.session_state[LOADED_SESSION_KEY] = _session_state(key, loaded)
     st.session_state.pop(COMPARISON_KEY, None)
-    st.success(f"{loaded.metadata.event_name} · {loaded.metadata.session_name} is ready.")
-    return loaded
+    # Start a clean run so transient loading controls disappear and progress
+    # immediately advances to lap selection.
+    st.rerun()
 
 
 def _render_comparison_controls(facade: AnalysisFacade, loaded: LoadedSession) -> None:
-    st.html('<div class="f1pi-stage"><span>02</span><h2>Choose two laps</h2></div>')
+    render_step_header(
+        2,
+        "Choose two laps",
+        "Use each driver's fastest accurate lap or select an exact accurate lap number.",
+    )
     left, right = st.columns(2, gap="large")
-    with left:
+    with left, st.container(border=True):
         driver_a, lap_a = _lap_controls("A", loaded.drivers, default_index=0)
-    with right:
+    with right, st.container(border=True):
         driver_b, lap_b = _lap_controls(
             "B",
             loaded.drivers,
@@ -149,7 +156,7 @@ def _render_comparison_controls(facade: AnalysisFacade, loaded: LoadedSession) -
             "performance difference to analyze."
         )
     if st.button(
-        "Run lap comparison",
+        "Compare selected laps",
         type="primary",
         width="stretch",
         disabled=identical,
@@ -176,15 +183,11 @@ def _render_comparison_controls(facade: AnalysisFacade, loaded: LoadedSession) -
         st.session_state.get(COMPARISON_KEY), loaded.key
     )
     if stored_comparison is not None:
-        st.success(
-            f"Comparison ready · {stored_comparison.lap_a.driver} lap "
-            f"{stored_comparison.lap_a.lap_number} vs "
-            f"{stored_comparison.lap_b.driver} lap "
-            f"{stored_comparison.lap_b.lap_number}"
-        )
-        st.html(
-            '<div class="f1pi-stage f1pi-stage--results"><span>03</span>'
-            "<h2>Read the lap</h2></div>"
+        render_comparison_ready(stored_comparison)
+        render_step_header(
+            3,
+            "Read the lap",
+            "Use the views below to move from the headline result to detailed evidence.",
         )
         try:
             render_results(loaded, stored_comparison)
@@ -239,6 +242,15 @@ def _clear_loaded_state() -> None:
 
 def _clear_comparison_state() -> None:
     st.session_state.pop(COMPARISON_KEY, None)
+
+
+def _active_step() -> int:
+    """Return the current workflow step from durable Streamlit state."""
+    if st.session_state.get(COMPARISON_KEY) is not None:
+        return 3
+    if st.session_state.get(LOADED_SESSION_KEY) is not None:
+        return 2
+    return 1
 
 
 def _session_state(key: SessionKey, value: object) -> dict[str, object]:
