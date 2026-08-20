@@ -20,7 +20,7 @@ from f1pi.analysis.models import (
     TurnReference,
 )
 from f1pi.analysis.performance_analysis import _turn_regions, analyze_performance
-from f1pi.analysis.summary import SummaryNarrativeProvider, summarize_performance
+from f1pi.analysis.performance_summary import SummaryNarrativeProvider, summarize_performance
 
 
 def _lap(driver: str, seconds: float) -> LapSummary:

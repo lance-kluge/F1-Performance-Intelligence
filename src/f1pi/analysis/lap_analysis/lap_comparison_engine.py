@@ -17,12 +17,12 @@ from f1pi.analysis.models import (
     SynchronizationConfig,
 )
 from f1pi.analysis.performance_analysis import analyze_performance
-from f1pi.analysis.selection import select_lap, summarize_lap
-from f1pi.analysis.summary import (
+from f1pi.analysis.performance_summary import (
     DeterministicSummaryNarrativeProvider,
     SummaryNarrativeProvider,
     summarize_performance,
 )
+from f1pi.analysis.selection import select_lap, summarize_lap
 from f1pi.analysis.telemetry import prepare_trace, synchronize_traces
 from f1pi.domain.exceptions import DatasetNotAvailableError
 

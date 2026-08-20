@@ -27,7 +27,7 @@ from f1pi.analysis.models import (
     TurnComparison,
     TurnReference,
 )
-from f1pi.analysis.summary import SummaryNarrativeProvider
+from f1pi.analysis.performance_summary import SummaryNarrativeProvider
 
 __all__ = [
     "AnalysisQuality",
