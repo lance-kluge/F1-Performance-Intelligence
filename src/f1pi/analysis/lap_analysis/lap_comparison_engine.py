@@ -16,7 +16,7 @@ from f1pi.analysis.models import (
     StraightComparison,
     SynchronizationConfig,
 )
-from f1pi.analysis.performance import analyze_performance
+from f1pi.analysis.performance_analysis import analyze_performance
 from f1pi.analysis.selection import select_lap, summarize_lap
 from f1pi.analysis.summary import (
     DeterministicSummaryNarrativeProvider,

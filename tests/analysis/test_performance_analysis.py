@@ -19,7 +19,7 @@ from f1pi.analysis.models import (
     SummaryFinding,
     TurnReference,
 )
-from f1pi.analysis.performance import _turn_regions, analyze_performance
+from f1pi.analysis.performance_analysis import _turn_regions, analyze_performance
 from f1pi.analysis.summary import SummaryNarrativeProvider, summarize_performance
 
 
