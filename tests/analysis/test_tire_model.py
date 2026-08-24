@@ -11,6 +11,7 @@ from f1pi.analysis import (
     TireModelConfig,
 )
 from f1pi.analysis.tire_model.features import prepare_observations
+from f1pi.analysis.tire_model.regression import StatsmodelsTireRegressor, slope_column
 from f1pi.analysis.tire_model.stints import extract_stints
 from f1pi.domain.exceptions import (
     DatasetNotAvailableError,
@@ -199,6 +200,36 @@ def test_raw_and_adjusted_models_return_compound_rates_and_bands() -> None:
         assert (curve["predicted_lap_time_seconds"] <= curve["mean_confidence_upper_seconds"]).all()
         assert (curve["prediction_lower_seconds"] <= curve["mean_confidence_lower_seconds"]).all()
         assert (curve["mean_confidence_upper_seconds"] <= curve["prediction_upper_seconds"]).all()
+
+
+def test_clustered_intervals_use_stint_inference_degrees_of_freedom() -> None:
+    frame = pd.DataFrame(
+        {
+            "lap_time_seconds": [91.0, 91.2, 91.4, 91.1, 91.4, 91.7],
+            "stint_id": ["AAA:01"] * 3 + ["BBB:01"] * 3,
+            "compound": ["SOFT"] * 6,
+            "driver": ["AAA"] * 3 + ["BBB"] * 3,
+            "tire_age_laps": [1.0, 2.0, 3.0] * 2,
+        }
+    )
+    fitted = StatsmodelsTireRegressor().fit(frame, DegradationMode.RAW, 0.95)
+    name = slope_column("SOFT")
+
+    coefficient, lower, upper = fitted.coefficient_interval(name)
+    prediction = fitted.predict(frame.iloc[[0]])
+
+    assert fitted.result.df_resid_inference == 1
+    position = fitted.spec.columns.index(name)
+    standard_error = float(fitted.result.cov_params()[position, position] ** 0.5)
+    assert (upper - coefficient) / standard_error == pytest.approx(12.7062, rel=1e-4)
+    mean = prediction["predicted_lap_time_seconds"].iloc[0]
+    values = fitted.design(frame.iloc[[0]]).to_numpy(dtype=float)
+    mean_variance = float((values @ fitted.result.cov_params() @ values.T).item())
+    mean_standard_error = mean_variance**0.5
+    assert (
+        prediction["mean_confidence_upper_seconds"].iloc[0] - mean
+    ) / mean_standard_error == pytest.approx(12.7062, rel=1e-4)
+    assert coefficient - lower == pytest.approx(upper - coefficient)
 
 
 def test_raw_mode_does_not_require_weather() -> None:

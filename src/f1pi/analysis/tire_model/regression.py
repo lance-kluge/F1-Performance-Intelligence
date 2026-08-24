@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from statistics import NormalDist
 from typing import Any, Protocol
 
 import numpy as np
@@ -105,7 +104,7 @@ class _StatsmodelsFit:
         prediction_standard_error = np.sqrt(
             np.maximum(mean_variance + float(self.result.scale), 0.0)
         )
-        critical = NormalDist().inv_cdf((1.0 + self.confidence_level) / 2.0)
+        critical = _critical_value(self.result, self.confidence_level)
         return pd.DataFrame(
             {
                 "predicted_lap_time_seconds": mean,
@@ -125,12 +124,18 @@ class _StatsmodelsFit:
         coefficient = float(np.asarray(self.result.params, dtype=float)[position])
         covariance = np.asarray(self.result.cov_params(), dtype=float)
         standard_error = float(np.sqrt(max(covariance[position, position], 0.0)))
-        critical = NormalDist().inv_cdf((1.0 + self.confidence_level) / 2.0)
+        critical = _critical_value(self.result, self.confidence_level)
         return (
             coefficient,
             coefficient - critical * standard_error,
             coefficient + critical * standard_error,
         )
+
+
+def _critical_value(result: Any, confidence_level: float) -> float:
+    constraint = np.zeros(len(result.params), dtype=float)
+    contrast = result.t_test(constraint)
+    return float(contrast.dist.ppf((1.0 + confidence_level) / 2.0, *contrast.dist_args))
 
 
 def slope_column(compound: str) -> str:
