@@ -19,6 +19,7 @@ WEATHER_FEATURES = (
     "wind_speed",
     "rainfall",
 )
+UNKNOWN_COMPOUND_LABELS = frozenset({"", "UNKNOWN"})
 
 
 def prepare_observations(
@@ -56,6 +57,11 @@ def prepare_observations(
         "tire_age_laps",
     ]
     _exclude(output, output[required].isna().any(axis=1), "missing_required")
+    _exclude(
+        output,
+        output["compound"].fillna("").isin(UNKNOWN_COMPOUND_LABELS),
+        "unknown_compound",
+    )
     _exclude(output, output["is_accurate"].ne(True).fillna(True), "inaccurate")
     _exclude(output, output["deleted"].eq(True).fillna(False), "deleted")
     pit_lap = output["pit_in_time_ns"].notna() | output["pit_out_time_ns"].notna()
@@ -115,7 +121,11 @@ def supported_compounds(
     supported: list[str] = []
     warnings: list[str] = []
     eligible = observations.loc[observations["eligible"]]
-    compounds = sorted(observations["compound"].dropna().astype(str).unique())
+    compounds = sorted(
+        compound
+        for compound in observations["compound"].dropna().astype(str).unique()
+        if compound not in UNKNOWN_COMPOUND_LABELS
+    )
     for compound in compounds:
         rows = eligible.loc[eligible["compound"].eq(compound)]
         enough = (

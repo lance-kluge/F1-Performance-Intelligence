@@ -278,6 +278,26 @@ def test_model_returns_supported_compounds_and_warns_about_sparse_ones() -> None
     assert result.observations.loc[hard_rows, "fitted_lap_time_seconds"].isna().all()
 
 
+@pytest.mark.parametrize("sentinel", ["UNKNOWN", ""])
+def test_unknown_compounds_remain_excluded_audit_rows(sentinel: str) -> None:
+    session = TireSession()
+    soft_laps = session._laps["compound"].eq("SOFT")
+    session._laps.loc[soft_laps, "compound"] = sentinel
+
+    result = TireDegradationEngine().analyze(
+        session, TireModelConfig(quick_lap_ratio=2.0)
+    )
+
+    assert {estimate.compound for estimate in result.estimates} == {"MEDIUM"}
+    sentinel_rows = result.observations["compound"].eq(sentinel)
+    assert sentinel_rows.any()
+    assert result.observations.loc[sentinel_rows, "eligible"].eq(False).all()
+    assert result.observations.loc[sentinel_rows, "exclusion_reason"].eq(
+        "unknown_compound"
+    ).all()
+    assert f"insufficient_compound_data:{sentinel}" not in result.warnings
+
+
 def test_sprint_session_is_supported() -> None:
     result = TireDegradationEngine().analyze(
         TireSession(session_type=SessionType.SPRINT),
