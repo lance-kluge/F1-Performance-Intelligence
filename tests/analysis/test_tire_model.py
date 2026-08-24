@@ -21,7 +21,7 @@ from f1pi.domain.exceptions import (
 from f1pi.domain.models import SessionMetadata, SessionType
 
 
-class TireSession:
+class StubTireAnalysisSession:
     def __init__(
         self,
         *,
@@ -41,7 +41,7 @@ class TireSession:
             session_date_utc=datetime(2026, 3, 1, tzinfo=UTC),
             fastf1_version="3.8.3",
         )
-        self._laps = _laps()
+        self._laps = _sample_laps()
         final_time = int(self._laps["lap_start_time_ns"].max() + 100_000_000_000)
         self._weather = pd.DataFrame(
             {
@@ -79,49 +79,54 @@ class TireSession:
         return self._track_status
 
 
-def _laps() -> pd.DataFrame:
-    rows: list[dict[str, object]] = []
-    drivers = (("AAA", 0.0, 5), ("BBB", 0.35, 6), ("CCC", -0.2, 7), ("DDD", 0.15, 8))
-    for driver_index, (driver, driver_effect, switch_lap) in enumerate(drivers):
+def _sample_laps() -> pd.DataFrame:
+    lap_records: list[dict[str, object]] = []
+    driver_scenarios = (
+        ("AAA", 0.0, 5),
+        ("BBB", 0.35, 6),
+        ("CCC", -0.2, 7),
+        ("DDD", 0.15, 8),
+    )
+    for driver_index, (driver, driver_effect, switch_lap) in enumerate(driver_scenarios):
         start_seconds = 0.0
         for lap_number in range(1, 13):
-            first_stint = lap_number <= switch_lap
-            compound = "SOFT" if first_stint else "MEDIUM"
-            stint = 1 if first_stint else 2
-            tire_age = lap_number if first_stint else lap_number - switch_lap
-            slope = 0.12 if compound == "SOFT" else 0.05
+            is_first_stint = lap_number <= switch_lap
+            compound = "SOFT" if is_first_stint else "MEDIUM"
+            stint_number = 1 if is_first_stint else 2
+            tire_age_laps = lap_number if is_first_stint else lap_number - switch_lap
+            degradation_rate = 0.12 if compound == "SOFT" else 0.05
             compound_effect = 0.0 if compound == "SOFT" else 0.6
-            noise = ((driver_index + tire_age) % 3 - 1) * 0.012
-            lap_time = (
+            lap_time_noise = ((driver_index + tire_age_laps) % 3 - 1) * 0.012
+            lap_time_seconds = (
                 92.0
                 + driver_effect
                 + compound_effect
-                + slope * tire_age
+                + degradation_rate * tire_age_laps
                 - 0.15 * lap_number
-                + noise
+                + lap_time_noise
             )
-            rows.append(
+            lap_records.append(
                 {
                     "driver": driver,
                     "driver_number": str(driver_index + 1),
                     "lap_number": lap_number,
-                    "lap_time_ns": int(lap_time * 1e9),
+                    "lap_time_ns": int(lap_time_seconds * 1e9),
                     "lap_start_time_ns": int(start_seconds * 1e9),
                     "pit_out_time_ns": pd.NA,
                     "pit_in_time_ns": pd.NA,
                     "sector1_time_ns": pd.NA,
                     "sector2_time_ns": pd.NA,
                     "sector3_time_ns": pd.NA,
-                    "stint": stint,
+                    "stint": stint_number,
                     "compound": compound,
-                    "tyre_life": float(tire_age),
+                    "tyre_life": float(tire_age_laps),
                     "fresh_tyre": True,
                     "is_accurate": True,
                     "deleted": False,
                 }
             )
-            start_seconds += lap_time
-    return pd.DataFrame(rows)
+            start_seconds += lap_time_seconds
+    return pd.DataFrame(lap_records)
 
 
 def test_extracts_stints_on_upstream_change_gap_compound_and_tire_reset() -> None:
@@ -135,44 +140,50 @@ def test_extracts_stints_on_upstream_change_gap_compound_and_tire_reset() -> Non
         }
     )
 
-    result = extract_stints(laps)
+    extracted_laps = extract_stints(laps)
 
-    assert result["stint_id"].tolist() == ["AAA:01", "AAA:01", "AAA:02", "AAA:03", "AAA:04"]
-    assert result["stint_lap_index"].tolist() == [1, 2, 1, 1, 1]
-    assert result["tyre_life"].tolist()[:2] == [4.0, 5.0]
+    assert extracted_laps["stint_id"].tolist() == [
+        "AAA:01",
+        "AAA:01",
+        "AAA:02",
+        "AAA:03",
+        "AAA:04",
+    ]
+    assert extracted_laps["stint_lap_index"].tolist() == [1, 2, 1, 1, 1]
+    assert extracted_laps["tyre_life"].tolist()[:2] == [4.0, 5.0]
 
 
 def test_feature_preparation_applies_exclusion_precedence() -> None:
-    session = TireSession()
+    session = StubTireAnalysisSession()
     laps = session.laps().loc[session.laps()["driver"].eq("AAA")].copy()
     laps.loc[laps.index[0], ["is_accurate", "deleted"]] = [False, True]
     laps.loc[laps.index[1], "deleted"] = True
     laps.loc[laps.index[2], "pit_in_time_ns"] = laps.loc[laps.index[2], "lap_start_time_ns"]
 
-    result = prepare_observations(
+    observations = prepare_observations(
         laps,
         session.weather(),
         session.track_status(),
         TireModelConfig(quick_lap_ratio=2.0),
     )
 
-    assert result["exclusion_reason"].iloc[:3].tolist() == [
+    assert observations["exclusion_reason"].iloc[:3].tolist() == [
         "inaccurate",
         "deleted",
         "pit_lap",
     ]
-    assert result["track_temp"].dropna().eq(32.0).all()
-    assert result["race_progress"].between(0, 1).all()
+    assert observations["track_temp"].dropna().eq(32.0).all()
+    assert observations["race_progress"].between(0, 1).all()
 
 
 def test_raw_and_adjusted_models_return_compound_rates_and_bands() -> None:
     engine = TireDegradationEngine()
     raw = engine.analyze(
-        TireSession(),
+        StubTireAnalysisSession(),
         TireModelConfig(mode=DegradationMode.RAW, quick_lap_ratio=2.0),
     )
     adjusted = engine.analyze(
-        TireSession(),
+        StubTireAnalysisSession(),
         TireModelConfig(mode=DegradationMode.ADJUSTED, quick_lap_ratio=2.0),
     )
 
@@ -203,7 +214,7 @@ def test_raw_and_adjusted_models_return_compound_rates_and_bands() -> None:
 
 
 def test_clustered_intervals_use_stint_inference_degrees_of_freedom() -> None:
-    frame = pd.DataFrame(
+    observations = pd.DataFrame(
         {
             "lap_time_seconds": [91.0, 91.2, 91.4, 91.1, 91.4, 91.7],
             "stint_id": ["AAA:01"] * 3 + ["BBB:01"] * 3,
@@ -212,103 +223,121 @@ def test_clustered_intervals_use_stint_inference_degrees_of_freedom() -> None:
             "tire_age_laps": [1.0, 2.0, 3.0] * 2,
         }
     )
-    fitted = StatsmodelsTireRegressor().fit(frame, DegradationMode.RAW, 0.95)
-    name = slope_column("SOFT")
+    fitted_regressor = StatsmodelsTireRegressor().fit(observations, DegradationMode.RAW, 0.95)
+    slope_coefficient_name = slope_column("SOFT")
 
-    coefficient, lower, upper = fitted.coefficient_interval(name)
-    prediction = fitted.predict(frame.iloc[[0]])
+    coefficient, lower_bound, upper_bound = fitted_regressor.coefficient_interval(
+        slope_coefficient_name
+    )
+    prediction_interval = fitted_regressor.predict(observations.iloc[[0]])
 
-    assert fitted.result.df_resid_inference == 1
-    position = fitted.spec.columns.index(name)
-    standard_error = float(fitted.result.cov_params()[position, position] ** 0.5)
-    assert (upper - coefficient) / standard_error == pytest.approx(12.7062, rel=1e-4)
-    mean = prediction["predicted_lap_time_seconds"].iloc[0]
-    values = fitted.design(frame.iloc[[0]]).to_numpy(dtype=float)
-    mean_variance = float((values @ fitted.result.cov_params() @ values.T).item())
+    assert fitted_regressor.regression_result.df_resid_inference == 1
+    coefficient_position = fitted_regressor.design_spec.columns.index(slope_coefficient_name)
+    standard_error = float(
+        fitted_regressor.regression_result.cov_params()[coefficient_position, coefficient_position]
+        ** 0.5
+    )
+    assert (upper_bound - coefficient) / standard_error == pytest.approx(12.7062, rel=1e-4)
+    predicted_mean = prediction_interval["predicted_lap_time_seconds"].iloc[0]
+    design_values = fitted_regressor.design(observations.iloc[[0]]).to_numpy(dtype=float)
+    mean_variance = float(
+        (design_values @ fitted_regressor.regression_result.cov_params() @ design_values.T).item()
+    )
     mean_standard_error = mean_variance**0.5
     assert (
-        prediction["mean_confidence_upper_seconds"].iloc[0] - mean
+        prediction_interval["mean_confidence_upper_seconds"].iloc[0] - predicted_mean
     ) / mean_standard_error == pytest.approx(12.7062, rel=1e-4)
-    assert coefficient - lower == pytest.approx(upper - coefficient)
+    assert coefficient - lower_bound == pytest.approx(upper_bound - coefficient)
 
 
 def test_raw_mode_does_not_require_weather() -> None:
-    result = TireDegradationEngine().analyze(
-        TireSession(weather_available=False),
+    raw_analysis = TireDegradationEngine().analyze(
+        StubTireAnalysisSession(weather_available=False),
         TireModelConfig(mode=DegradationMode.RAW, quick_lap_ratio=2.0),
     )
 
-    assert result.mode is DegradationMode.RAW
+    assert raw_analysis.mode is DegradationMode.RAW
 
 
 def test_adjusted_mode_requires_weather() -> None:
     with pytest.raises(InsufficientTireDataError, match="weather"):
-        TireDegradationEngine().analyze(TireSession(weather_available=False))
+        TireDegradationEngine().analyze(StubTireAnalysisSession(weather_available=False))
 
 
 def test_model_requires_track_status() -> None:
     with pytest.raises(InsufficientTireDataError, match="track status"):
-        TireDegradationEngine().analyze(TireSession(track_status_available=False))
+        TireDegradationEngine().analyze(StubTireAnalysisSession(track_status_available=False))
 
 
 def test_model_rejects_non_race_session() -> None:
     with pytest.raises(UnsupportedTireSessionError, match="Race and Sprint"):
-        TireDegradationEngine().analyze(TireSession(session_type=SessionType.QUALIFYING))
+        TireDegradationEngine().analyze(
+            StubTireAnalysisSession(session_type=SessionType.QUALIFYING)
+        )
 
 
 def test_model_rejects_session_without_supported_compound() -> None:
-    session = TireSession()
+    session = StubTireAnalysisSession()
     session._laps = session._laps.head(4)
     with pytest.raises(InsufficientTireDataError, match="no compound"):
         TireDegradationEngine().analyze(session, TireModelConfig(quick_lap_ratio=2.0))
 
 
 def test_model_returns_supported_compounds_and_warns_about_sparse_ones() -> None:
-    session = TireSession()
+    session = StubTireAnalysisSession()
     ddd_second_stint = session._laps["driver"].eq("DDD") & session._laps["stint"].eq(2)
     session._laps.loc[ddd_second_stint, "compound"] = "HARD"
 
-    result = TireDegradationEngine().analyze(
+    sparse_compound_analysis = TireDegradationEngine().analyze(
         session, TireModelConfig(quick_lap_ratio=2.0)
     )
 
-    assert {estimate.compound for estimate in result.estimates} == {"MEDIUM", "SOFT"}
-    assert "insufficient_compound_data:HARD" in result.warnings
-    hard_rows = result.observations["compound"].eq("HARD")
-    assert result.observations.loc[hard_rows, "fitted_lap_time_seconds"].isna().all()
+    assert {estimate.compound for estimate in sparse_compound_analysis.estimates} == {
+        "MEDIUM",
+        "SOFT",
+    }
+    assert "insufficient_compound_data:HARD" in sparse_compound_analysis.warnings
+    hard_compound_rows = sparse_compound_analysis.observations["compound"].eq("HARD")
+    assert (
+        sparse_compound_analysis.observations.loc[hard_compound_rows, "fitted_lap_time_seconds"]
+        .isna()
+        .all()
+    )
 
 
 @pytest.mark.parametrize("sentinel", ["UNKNOWN", ""])
 def test_unknown_compounds_remain_excluded_audit_rows(sentinel: str) -> None:
-    session = TireSession()
-    soft_laps = session._laps["compound"].eq("SOFT")
-    session._laps.loc[soft_laps, "compound"] = sentinel
+    session = StubTireAnalysisSession()
+    soft_compound_laps = session._laps["compound"].eq("SOFT")
+    session._laps.loc[soft_compound_laps, "compound"] = sentinel
 
-    result = TireDegradationEngine().analyze(
+    unknown_compound_analysis = TireDegradationEngine().analyze(
         session, TireModelConfig(quick_lap_ratio=2.0)
     )
 
-    assert {estimate.compound for estimate in result.estimates} == {"MEDIUM"}
-    sentinel_rows = result.observations["compound"].eq(sentinel)
+    assert {estimate.compound for estimate in unknown_compound_analysis.estimates} == {"MEDIUM"}
+    sentinel_rows = unknown_compound_analysis.observations["compound"].eq(sentinel)
     assert sentinel_rows.any()
-    assert result.observations.loc[sentinel_rows, "eligible"].eq(False).all()
-    assert result.observations.loc[sentinel_rows, "exclusion_reason"].eq(
-        "unknown_compound"
-    ).all()
-    assert f"insufficient_compound_data:{sentinel}" not in result.warnings
+    assert unknown_compound_analysis.observations.loc[sentinel_rows, "eligible"].eq(False).all()
+    assert (
+        unknown_compound_analysis.observations.loc[sentinel_rows, "exclusion_reason"]
+        .eq("unknown_compound")
+        .all()
+    )
+    assert f"insufficient_compound_data:{sentinel}" not in unknown_compound_analysis.warnings
 
 
 def test_sprint_session_is_supported() -> None:
-    result = TireDegradationEngine().analyze(
-        TireSession(session_type=SessionType.SPRINT),
+    sprint_analysis = TireDegradationEngine().analyze(
+        StubTireAnalysisSession(session_type=SessionType.SPRINT),
         TireModelConfig(quick_lap_ratio=2.0),
     )
 
-    assert result.estimates
+    assert sprint_analysis.estimates
 
 
 def test_non_green_session_has_no_modeling_laps() -> None:
-    session = TireSession()
+    session = StubTireAnalysisSession()
     session._track_status["status"] = "2"
 
     with pytest.raises(InsufficientTireDataError, match="no compound"):
@@ -316,7 +345,7 @@ def test_non_green_session_has_no_modeling_laps() -> None:
 
 
 @pytest.mark.parametrize(
-    "options",
+    "invalid_config_values",
     [
         {"confidence_level": 1.0},
         {"minimum_stint_laps": 1},
@@ -327,6 +356,8 @@ def test_non_green_session_has_no_modeling_laps() -> None:
         {"curve_points": 1},
     ],
 )
-def test_tire_model_config_rejects_invalid_values(options: dict[str, float]) -> None:
+def test_tire_model_config_rejects_invalid_values(
+    invalid_config_values: dict[str, float],
+) -> None:
     with pytest.raises(ValueError):
-        TireModelConfig(**options)  # type: ignore[arg-type]
+        TireModelConfig(**invalid_config_values)  # type: ignore[arg-type]

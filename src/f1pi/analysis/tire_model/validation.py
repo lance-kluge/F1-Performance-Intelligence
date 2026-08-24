@@ -18,72 +18,90 @@ from f1pi.domain.exceptions import InsufficientTireDataError
 
 
 def validate_model(
-    frame: pd.DataFrame,
+    observations: pd.DataFrame,
     mode: DegradationMode,
     config: TireModelConfig,
     regressor: TireRegressor,
 ) -> tuple[TireModelValidation, tuple[str, ...]]:
     """Return deterministic out-of-fold metrics with stints kept intact."""
-    groups = tuple(sorted(frame["stint_id"].astype(str).unique()))
-    fold_count = min(config.maximum_validation_folds, len(groups))
+    stint_ids = tuple(sorted(observations["stint_id"].astype(str).unique()))
+    fold_count = min(config.maximum_validation_folds, len(stint_ids))
     if fold_count < 2:
         raise InsufficientTireDataError("at least two stints are required for validation")
-    assignment = {group: index % fold_count for index, group in enumerate(groups)}
-    predicted = pd.Series(np.nan, index=frame.index, dtype=float)
-    baseline = pd.Series(np.nan, index=frame.index, dtype=float)
+    fold_by_stint = {stint_id: index % fold_count for index, stint_id in enumerate(stint_ids)}
+    out_of_fold_predictions = pd.Series(np.nan, index=observations.index, dtype=float)
+    baseline_predictions = pd.Series(np.nan, index=observations.index, dtype=float)
     successful_folds = 0
 
-    for fold in range(fold_count):
-        validation_mask = frame["stint_id"].astype(str).map(assignment).eq(fold)
-        train = frame.loc[~validation_mask]
-        test = frame.loc[validation_mask]
-        test = test.loc[test["compound"].isin(train["compound"].unique())]
-        if train.empty or test.empty:
+    for fold_index in range(fold_count):
+        is_validation_stint = observations["stint_id"].astype(str).map(fold_by_stint).eq(fold_index)
+        training_observations = observations.loc[~is_validation_stint]
+        validation_observations = observations.loc[is_validation_stint]
+        validation_observations = validation_observations.loc[
+            validation_observations["compound"].isin(training_observations["compound"].unique())
+        ]
+        if training_observations.empty or validation_observations.empty:
             continue
         try:
-            fitted = regressor.fit(train, mode, config.confidence_level)
-            fold_prediction = fitted.predict(test)["predicted_lap_time_seconds"]
+            fitted_regressor = regressor.fit(training_observations, mode, config.confidence_level)
+            validation_predictions = fitted_regressor.predict(validation_observations)[
+                "predicted_lap_time_seconds"
+            ]
         except (InsufficientTireDataError, ValueError, np.linalg.LinAlgError):
             continue
-        predicted.loc[test.index] = fold_prediction
-        compound_means = train.groupby("compound")["lap_time_seconds"].mean()
-        overall_mean = float(train["lap_time_seconds"].mean())
-        baseline.loc[test.index] = test["compound"].map(compound_means).fillna(overall_mean)
+        out_of_fold_predictions.loc[validation_observations.index] = validation_predictions
+        training_compound_means = training_observations.groupby("compound")[
+            "lap_time_seconds"
+        ].mean()
+        training_overall_mean = float(training_observations["lap_time_seconds"].mean())
+        baseline_predictions.loc[validation_observations.index] = (
+            validation_observations["compound"]
+            .map(training_compound_means)
+            .fillna(training_overall_mean)
+        )
         successful_folds += 1
 
-    evaluated = frame.loc[predicted.notna()].copy()
-    if evaluated.empty:
+    evaluated_observations = observations.loc[out_of_fold_predictions.notna()].copy()
+    if evaluated_observations.empty:
         raise InsufficientTireDataError("grouped validation could not fit any fold")
-    evaluated["_prediction"] = predicted.loc[evaluated.index]
-    evaluated["_baseline"] = baseline.loc[evaluated.index]
+    evaluated_observations["_prediction"] = out_of_fold_predictions.loc[
+        evaluated_observations.index
+    ]
+    evaluated_observations["_baseline"] = baseline_predictions.loc[evaluated_observations.index]
     per_compound = tuple(
-        _metrics(str(compound), rows)
-        for compound, rows in evaluated.groupby("compound", sort=True)
+        _metrics(str(compound), compound_observations)
+        for compound, compound_observations in evaluated_observations.groupby("compound", sort=True)
     )
-    complete = successful_folds == fold_count and len(evaluated) == len(frame)
-    warnings = () if complete else ("incomplete_cross_validation",)
+    is_complete = successful_folds == fold_count and len(evaluated_observations) == len(
+        observations
+    )
+    warnings = () if is_complete else ("incomplete_cross_validation",)
     return (
         TireModelValidation(
             fold_count=successful_folds,
-            overall=_metrics("overall", evaluated),
+            overall=_metrics("overall", evaluated_observations),
             per_compound=per_compound,
         ),
         warnings,
     )
 
 
-def _metrics(scope: str, frame: pd.DataFrame) -> TireModelMetrics:
-    actual = frame["lap_time_seconds"].to_numpy(dtype=float)
-    predicted = frame["_prediction"].to_numpy(dtype=float)
-    baseline = frame["_baseline"].to_numpy(dtype=float)
-    error = predicted - actual
-    total = float(np.sum((actual - actual.mean()) ** 2))
-    r_squared = None if len(actual) < 2 or total <= 0 else 1.0 - float(np.sum(error**2)) / total
+def _metrics(scope: str, evaluated_observations: pd.DataFrame) -> TireModelMetrics:
+    actual_lap_times = evaluated_observations["lap_time_seconds"].to_numpy(dtype=float)
+    predicted_lap_times = evaluated_observations["_prediction"].to_numpy(dtype=float)
+    baseline_lap_times = evaluated_observations["_baseline"].to_numpy(dtype=float)
+    prediction_errors = predicted_lap_times - actual_lap_times
+    total_variance = float(np.sum((actual_lap_times - actual_lap_times.mean()) ** 2))
+    r_squared = (
+        None
+        if len(actual_lap_times) < 2 or total_variance <= 0
+        else 1.0 - float(np.sum(prediction_errors**2)) / total_variance
+    )
     return TireModelMetrics(
         scope=scope,
-        observation_count=len(frame),
-        mae_seconds=float(np.mean(np.abs(error))),
-        rmse_seconds=math.sqrt(float(np.mean(error**2))),
+        observation_count=len(evaluated_observations),
+        mae_seconds=float(np.mean(np.abs(prediction_errors))),
+        rmse_seconds=math.sqrt(float(np.mean(prediction_errors**2))),
         r_squared=r_squared,
-        baseline_mae_seconds=float(np.mean(np.abs(baseline - actual))),
+        baseline_mae_seconds=float(np.mean(np.abs(baseline_lap_times - actual_lap_times))),
     )

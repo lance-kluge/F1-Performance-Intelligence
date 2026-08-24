@@ -9,18 +9,18 @@ from f1pi.domain.models import SessionKey
 
 
 def test_service_opens_session_and_delegates_analysis() -> None:
-    session = object()
+    opened_session = object()
     repository = Mock(spec=TireAnalysisSessionRepository)
-    repository.open.return_value = session
+    repository.open.return_value = opened_session
     engine = Mock(spec=TireDegradationEngine)
-    expected = cast(TireDegradationAnalysis, object())
-    engine.analyze.return_value = expected
+    expected_analysis = cast(TireDegradationAnalysis, object())
+    engine.analyze.return_value = expected_analysis
     service = TireModelService(repository, engine)
     key = SessionKey(2026, "Monaco", "R")
     config = TireModelConfig()
 
-    result = service.analyze(key, config)
+    analysis = service.analyze(key, config)
 
-    assert result is expected
+    assert analysis is expected_analysis
     repository.open.assert_called_once_with(key)
-    engine.analyze.assert_called_once_with(session, config)
+    engine.analyze.assert_called_once_with(opened_session, config)
