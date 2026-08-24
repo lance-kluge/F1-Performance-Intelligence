@@ -50,7 +50,7 @@ def test_metadata_makes_naive_time_utc(metadata: SessionMetadata) -> None:
         fastf1_version=metadata.fastf1_version,
     )
     assert naive.session_date_utc.tzinfo is UTC
-    assert metadata_record(naive)["schema_version"] == 2
+    assert metadata_record(naive)["schema_version"] == 3
 
 
 def test_scheduled_session_normalizes_time_to_utc() -> None:

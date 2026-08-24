@@ -4,11 +4,13 @@ F1 Performance Intelligence is a typed, local-first Python foundation for Formul
 performance analysis. It ingests complete FastF1 sessions, normalizes them into stable pandas
 schemas, writes immutable Parquet snapshots, and uses SQLite to select the active snapshot.
 The headless lap analyzer returns synchronized telemetry, track coordinates, exact section and
-corner-phase attribution, quality metadata, and an evidence-backed performance summary.
+corner-phase attribution, quality metadata, and an evidence-backed performance summary. The tire
+backend extracts clean Race and Sprint stints and returns validated compound degradation curves
+with confidence and prediction intervals.
 
 The analytical package is presentation-neutral. A Streamlit interface builds on these contracts
-without owning analytical logic; tire modeling, strategy simulation, and the race-engineer
-interface remain future work.
+without owning analytical logic; strategy simulation and the race-engineer interface remain
+future work.
 
 ## Setup
 
@@ -109,6 +111,26 @@ Use `LapSelection.numbered("NOR", 12)` to compare an explicit lap. Selections re
 marks inaccurate by default; pass `accurate_only=False` when an inaccurate numbered lap is
 intentional.
 
+Analyze tire degradation from an ingested Race or Sprint snapshot:
+
+```python
+from f1pi import DegradationMode, SessionKey, TireModelConfig, build_platform
+
+platform = build_platform()
+key = SessionKey(2022, "Bahrain", "R")
+platform.ingestion.ingest(key)
+
+adjusted = platform.tire_model.analyze(key)
+raw = platform.tire_model.analyze(key, TireModelConfig(mode=DegradationMode.RAW))
+
+print(adjusted.estimates)  # compound rates and 95% confidence intervals
+print(adjusted.curves.head())  # chart-ready mean and individual-lap bands
+```
+
+Adjusted mode controls for driver, race progress, and changing weather. Raw mode exposes the
+unadjusted within-session trend. Both are associations from observed clean laps and do not claim
+that tire age caused every recorded lap-time change.
+
 Snapshot and upstream refreshes are deliberately separate:
 
 ```python
@@ -150,9 +172,9 @@ pytest -m live tests/integration/test_live_bahrain.py --no-cov
 It ingests the 2022 Bahrain Grand Prix Race, verifies Charles Leclerc as the winner, reads all
 core datasets, demonstrates snapshot reuse, and exercises an upstream refresh.
 
-See [architecture](docs/architecture.md), [lap analysis methodology](docs/lap-analysis.md), and
-[schema reference](docs/schemas.md) for the platform boundaries, comparison conventions, and
-normalized units.
+See [architecture](docs/architecture.md), [lap analysis methodology](docs/lap-analysis.md),
+[tire model methodology](docs/tire-model.md), and [schema reference](docs/schemas.md) for the
+platform boundaries, analytical conventions, and normalized units.
 
 ## Data and trademarks
 

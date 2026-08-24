@@ -8,6 +8,7 @@ from f1pi.application.ingestion import IngestionService
 from f1pi.application.lap_analysis import LapAnalysisService
 from f1pi.application.repository import SessionRepository
 from f1pi.application.session_discovery import SessionDiscoveryService
+from f1pi.application.tire_model import TireModelService
 from f1pi.config import PlatformSettings
 from f1pi.infrastructure.fastf1_client import FastF1Client
 from f1pi.infrastructure.logging import configure_logging
@@ -21,6 +22,7 @@ class Platform:
     ingestion: IngestionService
     sessions: SessionRepository
     lap_analysis: LapAnalysisService
+    tire_model: TireModelService
     session_discovery: SessionDiscoveryService
 
 
@@ -37,5 +39,6 @@ def build_platform(settings: PlatformSettings | None = None) -> Platform:
         ingestion=IngestionService(fastf1_client, store, catalog),
         sessions=sessions,
         lap_analysis=LapAnalysisService(sessions),
+        tire_model=TireModelService(sessions),
         session_discovery=SessionDiscoveryService(fastf1_client),
     )

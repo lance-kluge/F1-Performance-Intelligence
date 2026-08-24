@@ -50,6 +50,17 @@ def test_2022_bahrain_race_end_to_end(tmp_path: Path) -> None:
     )
     assert comparison.quality.reconciliation_error_seconds < 1e-9
 
+    tire_analysis = platform.tire_model.analyze(key)
+    assert tire_analysis.estimates
+    assert tire_analysis.validation.fold_count >= 2
+    for estimate in tire_analysis.estimates:
+        assert estimate.confidence_lower_seconds_per_lap <= estimate.seconds_per_lap
+        assert estimate.seconds_per_lap <= estimate.confidence_upper_seconds_per_lap
+    assert (
+        tire_analysis.curves["prediction_lower_seconds"]
+        <= tire_analysis.curves["prediction_upper_seconds"]
+    ).all()
+
     second = platform.ingestion.ingest(key)
     assert second.snapshot_reused
     assert second.run_id == first.run_id

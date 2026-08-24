@@ -57,6 +57,8 @@ def source_session(metadata: SessionMetadata) -> SourceSession:
                     "LapNumber": [1, 2],
                     "LapTime": pd.to_timedelta([95.1, 94.8], unit="s"),
                     "LapStartTime": pd.to_timedelta([0, 95.1], unit="s"),
+                    "PitOutTime": pd.to_timedelta([None, None]),
+                    "PitInTime": pd.to_timedelta([None, None]),
                     "Sector1Time": pd.to_timedelta([31.7, 31.6], unit="s"),
                     "Sector2Time": pd.to_timedelta([31.7, 31.6], unit="s"),
                     "Sector3Time": pd.to_timedelta([31.7, 31.6], unit="s"),
@@ -65,6 +67,7 @@ def source_session(metadata: SessionMetadata) -> SourceSession:
                     "TyreLife": [1.0, 2.0],
                     "FreshTyre": [True, True],
                     "IsAccurate": [True, True],
+                    "Deleted": [False, False],
                 }
             ),
         ),

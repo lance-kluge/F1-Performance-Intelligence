@@ -25,6 +25,8 @@ def test_normalizes_and_validates_all_fixture_frames(source_session: SourceSessi
     assert str(laps["stint"].dtype) == "Int64"
     assert str(laps["lap_time_ns"].dtype) == "Int64"
     assert str(laps["lap_start_time_ns"].dtype) == "Int64"
+    assert str(laps["pit_in_time_ns"].dtype) == "Int64"
+    assert str(laps["deleted"].dtype) == "boolean"
     assert str(laps["fresh_tyre"].dtype) == "boolean"
     assert "date_utc_ns" in telemetry
     assert telemetry["driver"].unique().tolist() == ["LEC"]

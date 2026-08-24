@@ -9,13 +9,20 @@ if TYPE_CHECKING:
     from f1pi.analysis import (
         AnalysisQuality,
         ComparisonSummary,
+        CompoundDegradationEstimate,
         Confidence,
+        DegradationMode,
         LapComparison,
         LapSelection,
         PerformanceSectionComparison,
         SegmentationConfig,
         SummaryNarrativeProvider,
         SynchronizationConfig,
+        TireDegradationAnalysis,
+        TireModelConfig,
+        TireModelMetrics,
+        TireModelValidation,
+        TireStintSummary,
     )
     from f1pi.composition import Platform, build_platform
     from f1pi.config import PlatformSettings
@@ -32,7 +39,9 @@ if TYPE_CHECKING:
 __all__ = [
     "AnalysisQuality",
     "ComparisonSummary",
+    "CompoundDegradationEstimate",
     "Confidence",
+    "DegradationMode",
     "FastF1Client",
     "IngestionResult",
     "LapComparison",
@@ -48,13 +57,20 @@ __all__ = [
     "SessionType",
     "SummaryNarrativeProvider",
     "SynchronizationConfig",
+    "TireDegradationAnalysis",
+    "TireModelConfig",
+    "TireModelMetrics",
+    "TireModelValidation",
+    "TireStintSummary",
     "build_platform",
 ]
 
 _EXPORTS = {
     "AnalysisQuality": ("f1pi.analysis", "AnalysisQuality"),
     "ComparisonSummary": ("f1pi.analysis", "ComparisonSummary"),
+    "CompoundDegradationEstimate": ("f1pi.analysis", "CompoundDegradationEstimate"),
     "Confidence": ("f1pi.analysis", "Confidence"),
+    "DegradationMode": ("f1pi.analysis", "DegradationMode"),
     "FastF1Client": ("f1pi.infrastructure.fastf1_client", "FastF1Client"),
     "IngestionResult": ("f1pi.domain", "IngestionResult"),
     "LapComparison": ("f1pi.analysis", "LapComparison"),
@@ -70,6 +86,11 @@ _EXPORTS = {
     "SessionType": ("f1pi.domain", "SessionType"),
     "SummaryNarrativeProvider": ("f1pi.analysis", "SummaryNarrativeProvider"),
     "SynchronizationConfig": ("f1pi.analysis", "SynchronizationConfig"),
+    "TireDegradationAnalysis": ("f1pi.analysis", "TireDegradationAnalysis"),
+    "TireModelConfig": ("f1pi.analysis", "TireModelConfig"),
+    "TireModelMetrics": ("f1pi.analysis", "TireModelMetrics"),
+    "TireModelValidation": ("f1pi.analysis", "TireModelValidation"),
+    "TireStintSummary": ("f1pi.analysis", "TireStintSummary"),
     "build_platform": ("f1pi.composition", "build_platform"),
 }
 

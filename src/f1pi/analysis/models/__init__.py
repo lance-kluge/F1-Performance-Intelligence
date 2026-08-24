@@ -26,13 +26,24 @@ from f1pi.analysis.models.performance_analysis import (
 from f1pi.analysis.models.sector_comparison import SectorComparison
 from f1pi.analysis.models.straight_comparison import StraightComparison
 from f1pi.analysis.models.synchronization_config import SynchronizationConfig
+from f1pi.analysis.models.tire_model import (
+    CompoundDegradationEstimate,
+    DegradationMode,
+    TireDegradationAnalysis,
+    TireModelConfig,
+    TireModelMetrics,
+    TireModelValidation,
+    TireStintSummary,
+)
 
 __all__ = [
     "AnalysisQuality",
     "ComparisonSummary",
+    "CompoundDegradationEstimate",
     "Confidence",
     "CornerComparison",
     "CornerPhaseKind",
+    "DegradationMode",
     "DriverCornerMetrics",
     "DriverStraightMetrics",
     "FindingEvidence",
@@ -50,6 +61,11 @@ __all__ = [
     "StraightComparison",
     "SummaryFinding",
     "SynchronizationConfig",
+    "TireDegradationAnalysis",
+    "TireModelConfig",
+    "TireModelMetrics",
+    "TireModelValidation",
+    "TireStintSummary",
     "TurnComparison",
     "TurnReference",
 ]
