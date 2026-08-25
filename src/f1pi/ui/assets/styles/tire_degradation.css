@@ -1,0 +1,141 @@
+/* Tire-degradation workspace: compound-led summaries and transparent model evidence. */
+
+.f1pi-tire-intro h1 { max-width: 11ch; }
+
+.f1pi-tire-ready {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1.2rem;
+  align-items: center;
+  margin: 1rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(103, 210, 160, .28);
+  background: rgba(103, 210, 160, .055);
+}
+
+.f1pi-tire-ready > div { display: grid; gap: .22rem; }
+.f1pi-tire-ready > div > span {
+  color: var(--f1pi-muted);
+  font-size: .6rem;
+  font-weight: 720;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.f1pi-tire-ready strong { font-size: .95rem; }
+.f1pi-tire-ready small { color: var(--f1pi-muted); font-size: .72rem; }
+
+.f1pi-tire-result-hero {
+  margin-top: 1.8rem;
+  padding: clamp(1.4rem, 4vw, 2.8rem);
+  border: 1px solid var(--f1pi-line-strong);
+  background:
+    radial-gradient(circle at 92% 8%, rgba(255, 79, 71, .11), transparent 31%),
+    linear-gradient(135deg, rgba(245, 243, 237, .025), transparent 50%),
+    var(--f1pi-panel);
+}
+
+.f1pi-tire-stat-grid,
+.f1pi-quality-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  margin-top: 2.4rem;
+  padding: 1px;
+  background: var(--f1pi-line);
+}
+
+.f1pi-tire-stat-grid article,
+.f1pi-quality-grid article {
+  display: grid;
+  min-height: 8.8rem;
+  padding: 1.15rem;
+  background: #101012;
+}
+
+.f1pi-tire-stat-grid span,
+.f1pi-quality-grid span,
+.f1pi-compound-card > span,
+.f1pi-model-boundary span {
+  color: var(--f1pi-muted);
+  font-size: .62rem;
+  font-weight: 720;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.f1pi-tire-stat-grid strong,
+.f1pi-quality-grid strong {
+  align-self: end;
+  font-size: clamp(1.2rem, 2.1vw, 1.65rem);
+  line-height: 1.05;
+}
+
+.f1pi-tire-stat-grid small,
+.f1pi-quality-grid small { color: var(--f1pi-muted); font-size: .68rem; }
+
+.f1pi-compound-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1px;
+  margin-bottom: 1rem;
+  padding: 1px;
+  background: var(--f1pi-line);
+}
+
+.f1pi-compound-card {
+  --compound-color: var(--f1pi-accent);
+  display: grid;
+  min-height: 13rem;
+  padding: 1.25rem;
+  box-shadow: inset 0 3px 0 var(--compound-color);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--compound-color) 8%, transparent), transparent 52%),
+    var(--f1pi-panel);
+}
+
+.f1pi-compound-card--soft { --compound-color: #ff4f47; }
+.f1pi-compound-card--medium { --compound-color: #f1c84b; }
+.f1pi-compound-card--hard { --compound-color: #f5f3ed; }
+.f1pi-compound-card--intermediate { --compound-color: #67d2a0; }
+.f1pi-compound-card--wet { --compound-color: #5f8cff; }
+.f1pi-compound-card > span { color: var(--compound-color); }
+.f1pi-compound-card strong {
+  align-self: end;
+  margin-top: 1.8rem;
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.035em;
+}
+.f1pi-compound-card p { margin: .45rem 0 .9rem; font-size: .78rem; }
+.f1pi-compound-card small { color: var(--f1pi-muted); font-size: .67rem; line-height: 1.55; }
+
+.f1pi-quality-grid { margin: 0 0 1rem; }
+.f1pi-quality-grid strong { font-variant-numeric: tabular-nums; }
+
+.f1pi-model-boundary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  padding: 1px;
+  background: var(--f1pi-line);
+}
+
+.f1pi-model-boundary article { padding: 1.4rem; background: var(--f1pi-panel); }
+.f1pi-model-boundary p {
+  max-width: 38rem;
+  margin: 1rem 0 0;
+  color: var(--f1pi-muted);
+  font-size: .82rem;
+  line-height: 1.65;
+}
+
+@media (max-width: 900px) {
+  .f1pi-tire-stat-grid, .f1pi-quality-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 600px) {
+  .f1pi-tire-ready { grid-template-columns: auto 1fr; }
+  .f1pi-tire-ready .f1pi-session-ready__source { grid-column: 2; justify-self: start; }
+  .f1pi-tire-stat-grid, .f1pi-quality-grid, .f1pi-model-boundary { grid-template-columns: 1fr; }
+  .f1pi-tire-stat-grid article, .f1pi-quality-grid article { min-height: 7.5rem; }
+}

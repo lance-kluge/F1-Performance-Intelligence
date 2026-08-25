@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from time import monotonic
 
 from f1pi.application.ports import Catalog, DatasetStore, SessionSource
-from f1pi.domain.models import IngestionResult, LoadOptions, SessionKey
+from f1pi.domain.models import DatasetKind, IngestionResult, LoadOptions, SessionKey
 from f1pi.infrastructure.logging import log_event
 from f1pi.processing.normalization import normalize_session
 from f1pi.processing.schemas import SCHEMA_VERSION
@@ -29,11 +30,12 @@ class IngestionService:
             artifact_kinds = {artifact.kind for artifact in artifacts}
             has_required_datasets = options.required_dataset_kinds() <= artifact_kinds
             has_current_schema = cached.metadata.schema_version == SCHEMA_VERSION
+            artifacts_exist = all(self._store.artifact_exists(item) for item in artifacts)
             if (
                 artifacts
                 and has_required_datasets
                 and has_current_schema
-                and all(self._store.artifact_exists(item) for item in artifacts)
+                and artifacts_exist
             ):
                 log_event(
                     self._logger,
@@ -49,6 +51,8 @@ class IngestionService:
                     snapshot_reused=True,
                     artifacts=artifacts,
                 )
+            if artifacts and has_current_schema and artifacts_exist:
+                options = _preserve_existing_datasets(options, artifact_kinds)
 
         run_id = self._catalog.begin_run(key)
         started = monotonic()
@@ -103,3 +107,20 @@ class IngestionService:
             snapshot_reused=False,
             artifacts=artifacts,
         )
+
+
+def _preserve_existing_datasets(
+    options: LoadOptions,
+    artifact_kinds: set[DatasetKind],
+) -> LoadOptions:
+    """Keep optional capabilities when a partial snapshot must be upgraded."""
+    has_telemetry = {
+        DatasetKind.CAR_TELEMETRY,
+        DatasetKind.POSITION,
+    } <= artifact_kinds
+    return replace(
+        options,
+        telemetry=options.telemetry or has_telemetry,
+        weather=options.weather or DatasetKind.WEATHER in artifact_kinds,
+        messages=options.messages or DatasetKind.RACE_CONTROL in artifact_kinds,
+    )
