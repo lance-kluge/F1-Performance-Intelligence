@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -27,9 +29,16 @@ FALLBACK_COLORS = ("#b47cff", "#ff9e64", "#56c7d9", "#d789b9")
 def degradation_rate_figure(analysis: TireAnalysis) -> go.Figure:
     """Show compound slopes and their coefficient confidence intervals."""
     estimates = analysis.estimates
+    displayed_rates = [_display_rate(estimate.seconds_per_lap) for estimate in estimates]
+    displayed_lower_bounds = [
+        _display_rate(estimate.confidence_lower_seconds_per_lap) for estimate in estimates
+    ]
+    displayed_upper_bounds = [
+        _display_rate(estimate.confidence_upper_seconds_per_lap) for estimate in estimates
+    ]
     figure = go.Figure(
         go.Scatter(
-            x=[estimate.seconds_per_lap for estimate in estimates],
+            x=displayed_rates,
             y=[estimate.compound.title() for estimate in estimates],
             mode="markers",
             marker={
@@ -41,12 +50,16 @@ def degradation_rate_figure(analysis: TireAnalysis) -> go.Figure:
                 "type": "data",
                 "symmetric": False,
                 "array": [
-                    estimate.confidence_upper_seconds_per_lap - estimate.seconds_per_lap
-                    for estimate in estimates
+                    _display_rate(upper_bound - rate)
+                    for upper_bound, rate in zip(
+                        displayed_upper_bounds, displayed_rates, strict=True
+                    )
                 ],
                 "arrayminus": [
-                    estimate.seconds_per_lap - estimate.confidence_lower_seconds_per_lap
-                    for estimate in estimates
+                    _display_rate(rate - lower_bound)
+                    for rate, lower_bound in zip(
+                        displayed_rates, displayed_lower_bounds, strict=True
+                    )
                 ],
                 "color": MUTED_COLOR,
                 "thickness": 1.5,
@@ -80,7 +93,12 @@ def degradation_rate_figure(analysis: TireAnalysis) -> go.Figure:
     )
 
 
-def degradation_curve_figure(analysis: TireAnalysis) -> go.Figure:
+def degradation_curve_figure(
+    analysis: TireAnalysis,
+    *,
+    x_range: tuple[float, float] | None = None,
+    y_range: tuple[float, float] | None = None,
+) -> go.Figure:
     """Overlay eligible laps, adjusted curves, and both uncertainty bands."""
     figure = go.Figure()
     eligible = analysis.observations.loc[analysis.observations["eligible"]]
@@ -148,6 +166,32 @@ def degradation_curve_figure(analysis: TireAnalysis) -> go.Figure:
         height=520,
         x_tickformat=".0f",
         y_tickformat=".1f",
+        x_range=x_range,
+        y_range=y_range,
+    )
+
+
+def shared_degradation_curve_ranges(
+    analyses: Sequence[TireAnalysis],
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Return common padded axes covering every visible curve and clean lap."""
+    tire_ages: list[float] = []
+    lap_times: list[float] = []
+    for analysis in analyses:
+        compounds = {estimate.compound for estimate in analysis.estimates}
+        curves = analysis.curves.loc[analysis.curves["compound"].isin(compounds)]
+        observations = analysis.observations.loc[
+            analysis.observations["eligible"]
+            & analysis.observations["compound"].isin(compounds)
+        ]
+        tire_ages.extend(curves["tire_age_laps"].dropna().astype(float))
+        tire_ages.extend(observations["tire_age_laps"].dropna().astype(float))
+        lap_times.extend(observations["lap_time_seconds"].dropna().astype(float))
+        lap_times.extend(curves["prediction_lower_seconds"].dropna().astype(float))
+        lap_times.extend(curves["prediction_upper_seconds"].dropna().astype(float))
+    return _padded_range(tire_ages, minimum_padding=0.5), _padded_range(
+        lap_times,
+        minimum_padding=0.1,
     )
 
 
@@ -226,6 +270,19 @@ def _with_alpha(hex_color: str, alpha: float) -> str:
     return f"rgba({red},{green},{blue},{alpha})"
 
 
+def _display_rate(value: float) -> float:
+    return round(value, 3)
+
+
+def _padded_range(values: Sequence[float], *, minimum_padding: float) -> tuple[float, float]:
+    if not values:
+        raise ValueError("shared curve ranges require visible values")
+    lower = min(values)
+    upper = max(values)
+    padding = max((upper - lower) * 0.04, minimum_padding)
+    return lower - padding, upper + padding
+
+
 def _base_figure(
     figure: go.Figure,
     *,
@@ -235,6 +292,8 @@ def _base_figure(
     height: int,
     x_tickformat: str | None = None,
     y_tickformat: str | None = None,
+    x_range: tuple[float, float] | None = None,
+    y_range: tuple[float, float] | None = None,
 ) -> go.Figure:
     figure.update_layout(
         title={"text": title.upper(), "font": {"size": 12, "color": MUTED_COLOR}},
@@ -251,11 +310,13 @@ def _base_figure(
         gridcolor=GRID_COLOR,
         zeroline=False,
         tickformat=x_tickformat,
+        range=x_range,
     )
     figure.update_yaxes(
         title=y_title,
         gridcolor=GRID_COLOR,
         zeroline=False,
         tickformat=y_tickformat,
+        range=y_range,
     )
     return figure

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import nullcontext
 from pathlib import Path
@@ -93,7 +94,12 @@ def test_driver_view_compares_two_scoped_models_side_by_side() -> None:
     assert "Driver degradation rates" in markup
     assert "Modeled stint shapes" in markup
     assert "estimated from one stint" in " ".join(item.value for item in app.warning)
-    assert len(app.get("plotly_chart")) == 4
+    charts = app.get("plotly_chart")
+    assert len(charts) == 4
+    first_curve = json.loads(charts[2].proto.spec)
+    second_curve = json.loads(charts[3].proto.spec)
+    assert first_curve["layout"]["xaxis"]["range"] == second_curve["layout"]["xaxis"]["range"]
+    assert first_curve["layout"]["yaxis"]["range"] == second_curve["layout"]["yaxis"]["range"]
     assert len(app.dataframe) == 6
 
 

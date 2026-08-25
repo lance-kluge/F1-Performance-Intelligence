@@ -21,6 +21,7 @@ from f1pi.ui.tire_charts import (
     compound_color,
     degradation_curve_figure,
     degradation_rate_figure,
+    shared_degradation_curve_ranges,
     validation_figure,
 )
 from f1pi.ui.tire_formatting import (
@@ -173,14 +174,19 @@ def _render_driver_degradation(
     render_result_section(
         2,
         "Modeled stint shapes",
-        "Raw clean laps and reference-condition trends stay separated by driver for comparison.",
+        "Both drivers share the same axes, so raw laps and reference trends compare directly.",
     )
+    shared_x_range, shared_y_range = shared_degradation_curve_ranges(analyses)
     columns = st.columns(2, gap="large")
     for column, analysis in zip(columns, analyses, strict=True):
         with column:
             _render_driver_heading(analysis)
             st.plotly_chart(
-                degradation_curve_figure(analysis),
+                degradation_curve_figure(
+                    analysis,
+                    x_range=shared_x_range,
+                    y_range=shared_y_range,
+                ),
                 config=PLOT_CONFIG,
                 width="stretch",
                 key=f"driver_tire_curves_{analysis.driver}",
