@@ -18,6 +18,9 @@ def test_tire_figures_preserve_uncertainty_and_validation_contract(tire_analysis
     assert list(rates.data[0].x) == [0.1, 0.2]
     assert list(rates.data[0].error_x.array) == pytest.approx([0.06, 0.22])
     assert list(rates.data[0].error_x.arrayminus) == pytest.approx([0.06, 0.22])
+    assert list(rates.data[0].customdata[0]) == ["+0.100", "+0.040", "+0.160", 4, 2]
+    assert "%{customdata[0]} s/lap" in rates.data[0].hovertemplate
+    assert ":.3f" not in rates.data[0].hovertemplate
 
     curves = degradation_curve_figure(analysis)
     assert curves.layout.title.text == "RAW LAPS AND REFERENCE-CONDITION TREND"

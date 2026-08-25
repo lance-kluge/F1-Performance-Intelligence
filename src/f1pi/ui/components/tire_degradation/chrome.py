@@ -25,38 +25,6 @@ def render_tire_intro() -> None:
     )
 
 
-def render_tire_progress(active_step: int) -> None:
-    """Render the workflow with the selected session or result step active."""
-    steps = (
-        (1, "Session", "Choose a Race or Sprint"),
-        (2, "Model", "Adjust for changing conditions"),
-        (3, "Results", "Read trends and uncertainty"),
-    )
-    items = []
-    for number, title, detail in steps:
-        if number < active_step:
-            state, state_label = "complete", "Complete"
-        elif number == active_step:
-            state, state_label = "active", "Current"
-        else:
-            state, state_label = "next", "Next"
-        items.append(
-            f"""
-            <li class="f1pi-progress__item f1pi-progress__item--{state}">
-              <span class="f1pi-progress__number">{number:02d}</span>
-              <span class="f1pi-progress__copy"><strong>{escape(title)}</strong>
-                <small>{escape(detail)}</small></span>
-              <span class="f1pi-progress__state">{state_label}</span>
-            </li>
-            """
-        )
-    st.html(
-        '<nav class="f1pi-progress" aria-label="Tire analysis progress"><ol>'
-        + "".join(items)
-        + "</ol></nav>"
-    )
-
-
 def render_tire_session_context(
     event: ScheduledEvent,
     session: ScheduledSession,

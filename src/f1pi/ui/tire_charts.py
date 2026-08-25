@@ -52,17 +52,18 @@ def degradation_rate_figure(analysis: TireDegradationAnalysis) -> go.Figure:
             },
             customdata=[
                 [
-                    estimate.confidence_lower_seconds_per_lap,
-                    estimate.confidence_upper_seconds_per_lap,
+                    f"{estimate.seconds_per_lap:+.3f}",
+                    f"{estimate.confidence_lower_seconds_per_lap:+.3f}",
+                    f"{estimate.confidence_upper_seconds_per_lap:+.3f}",
                     estimate.observation_count,
                     estimate.stint_count,
                 ]
                 for estimate in estimates
             ],
             hovertemplate=(
-                "%{y}<br>%{x:+.3f} s/lap<br>"
-                "95% interval %{customdata[0]:+.3f} to %{customdata[1]:+.3f}<br>"
-                "%{customdata[2]} laps · %{customdata[3]} stints<extra></extra>"
+                "%{y}<br>%{customdata[0]} s/lap<br>"
+                "95% interval %{customdata[1]} to %{customdata[2]} s/lap<br>"
+                "%{customdata[3]} laps · %{customdata[4]} stints<extra></extra>"
             ),
             showlegend=False,
         )
