@@ -21,7 +21,7 @@ Curves never extend beyond the minimum and maximum tire age observed for their c
 `TireModelService.analyze_driver` accepts a `SessionKey`, driver abbreviation, and optional
 `DriverTireModelConfig`. It runs the same preparation, regression, uncertainty, and curve pipeline
 after selecting that driver's rows. The returned `DriverTireDegradationAnalysis` is self-describing
-through its canonical `driver` value, and its stints and observations never contain another
+through its normalized `driver` value, and its stints and observations never contain another
 driver. Full-session preparation happens before selection so race progress retains the session's
 actual lap range, including when the selected driver retires early.
 

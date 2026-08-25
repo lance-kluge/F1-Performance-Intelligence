@@ -264,8 +264,8 @@ def test_driver_model_uses_hc3_when_only_one_stint_is_available() -> None:
 
 def test_driver_model_validates_repeated_same_compound_stints() -> None:
     session = StubTireAnalysisSession()
-    selected_driver = session._laps["driver"].eq("AAA")
-    session._laps.loc[selected_driver, "compound"] = "SOFT"
+    is_selected_driver = session._laps["driver"].eq("AAA")
+    session._laps.loc[is_selected_driver, "compound"] = "SOFT"
 
     analysis = TireDegradationEngine().analyze_driver(
         session,
@@ -282,9 +282,7 @@ def test_driver_model_validates_repeated_same_compound_stints() -> None:
 
 def test_driver_model_rejects_unknown_driver() -> None:
     with pytest.raises(DriverNotFoundError, match="NOT-A-DRIVER"):
-        TireDegradationEngine().analyze_driver(
-            StubTireAnalysisSession(), "NOT-A-DRIVER"
-        )
+        TireDegradationEngine().analyze_driver(StubTireAnalysisSession(), "NOT-A-DRIVER")
 
 
 def test_driver_model_does_not_fall_back_to_other_drivers() -> None:

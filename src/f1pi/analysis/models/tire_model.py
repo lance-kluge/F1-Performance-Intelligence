@@ -22,7 +22,7 @@ class DegradationMode(StrEnum):
 class TireModelConfig:
     """Eligibility, inference, and validation settings for tire modeling."""
 
-    _minimum_supported_compound_stints: ClassVar[int] = 2
+    _minimum_required_compound_stints: ClassVar[int] = 2
 
     mode: DegradationMode = DegradationMode.ADJUSTED
     confidence_level: float = 0.95
@@ -38,10 +38,9 @@ class TireModelConfig:
             raise ValueError("confidence_level must be in (0, 1)")
         if self.minimum_stint_laps < 2:
             raise ValueError("minimum_stint_laps must be at least 2")
-        if self.minimum_compound_stints < self._minimum_supported_compound_stints:
+        if self.minimum_compound_stints < self._minimum_required_compound_stints:
             raise ValueError(
-                "minimum_compound_stints must be at least "
-                f"{self._minimum_supported_compound_stints}"
+                f"minimum_compound_stints must be at least {self._minimum_required_compound_stints}"
             )
         if self.minimum_compound_laps < self.minimum_stint_laps:
             raise ValueError("minimum_compound_laps must cover at least one stint")
@@ -57,7 +56,7 @@ class TireModelConfig:
 class DriverTireModelConfig(TireModelConfig):
     """Driver-scoped defaults for the shared tire-modeling pipeline."""
 
-    _minimum_supported_compound_stints: ClassVar[int] = 1
+    _minimum_required_compound_stints: ClassVar[int] = 1
 
     minimum_compound_stints: int = 1
     minimum_compound_laps: int = 5
