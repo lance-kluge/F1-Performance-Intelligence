@@ -121,20 +121,30 @@ def test_tire_facade_exposes_only_race_and_sprint_sessions() -> None:
     assert [session.session_type.value for session in events[0].sessions] == ["S", "R"]
 
 
-def test_tire_facade_ingests_minimum_snapshot_and_runs_selected_mode() -> None:
+@pytest.mark.parametrize(
+    ("mode", "requires_weather"),
+    [
+        (DegradationMode.ADJUSTED, True),
+        (DegradationMode.RAW, False),
+    ],
+)
+def test_tire_facade_ingests_mode_specific_snapshot(
+    mode: DegradationMode,
+    requires_weather: bool,
+) -> None:
     platform = Mock()
     platform.ingestion.ingest.return_value = IngestionResult("session", "run", True, ())
     platform.tire_model.analyze.return_value = object()
     facade = TireAnalysisFacade(platform)
     key = SessionKey(2026, 1, "R")
 
-    run = facade.analyze(key, DegradationMode.RAW)
+    run = facade.analyze(key, mode)
 
     assert run.snapshot_reused is True
     assert run.analysis is platform.tire_model.analyze.return_value
     options = platform.ingestion.ingest.call_args.args[1]
     assert options.telemetry is False
-    assert options.weather is True
+    assert options.weather is requires_weather
     assert options.messages is False
     config = platform.tire_model.analyze.call_args.args[1]
-    assert config.mode is DegradationMode.RAW
+    assert config.mode is mode

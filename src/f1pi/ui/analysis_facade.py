@@ -108,7 +108,11 @@ class TireAnalysisFacade:
     def analyze(self, key: SessionKey, mode: DegradationMode) -> TireAnalysisRun:
         ingestion = self._platform.ingestion.ingest(
             key,
-            LoadOptions(telemetry=False, weather=True, messages=False),
+            LoadOptions(
+                telemetry=False,
+                weather=mode is DegradationMode.ADJUSTED,
+                messages=False,
+            ),
         )
         analysis = self._platform.tire_model.analyze(key, TireModelConfig(mode=mode))
         return TireAnalysisRun(analysis=analysis, snapshot_reused=ingestion.snapshot_reused)
