@@ -12,13 +12,14 @@ import f1pi.ui.pages.tire_degradation as page
 from f1pi.analysis.models import (
     CompoundDegradationEstimate,
     DegradationMode,
+    DriverTireDegradationAnalysis,
     TireDegradationAnalysis,
     TireModelMetrics,
     TireModelValidation,
     TireStintSummary,
 )
 from f1pi.domain.models import ScheduledEvent, ScheduledSession, SessionKey, SessionMetadata
-from f1pi.ui.models import TireAnalysisRun
+from f1pi.ui.models import DriverOption, DriverTireAnalysisRun, TireAnalysisRun
 from f1pi.ui.styles import load_styles
 
 
@@ -44,6 +45,66 @@ class FakeTireFacade:
     def analyze(self, key: SessionKey, mode: DegradationMode) -> TireAnalysisRun:
         st.session_state["fake_tire_mode"] = mode.value
         return _analysis_run(key, mode)
+
+    def list_drivers(self, key: SessionKey) -> tuple[DriverOption, ...]:
+        return (
+            DriverOption("NOR", "Lando Norris", "McLaren", (1, 2, 3, 4)),
+            DriverOption("VER", "Max Verstappen", "Red Bull Racing", (5, 6, 7, 8)),
+        )
+
+    def analyze_drivers(
+        self,
+        key: SessionKey,
+        drivers: tuple[str, str],
+        mode: DegradationMode,
+    ) -> tuple[DriverTireAnalysisRun, DriverTireAnalysisRun]:
+        st.session_state["fake_tire_driver_comparison"] = (*drivers, mode.value)
+        session_analysis = _analysis_run(key, mode).analysis
+        return (
+            _driver_analysis_run(session_analysis, drivers[0]),
+            _driver_analysis_run(session_analysis, drivers[1]),
+        )
+
+
+def _driver_analysis_run(
+    session_analysis: TireDegradationAnalysis,
+    driver: str,
+) -> DriverTireAnalysisRun:
+    observations = session_analysis.observations.loc[
+        session_analysis.observations["driver"].eq(driver)
+    ].reset_index(drop=True)
+    compounds = tuple(observations["compound"].unique())
+    estimates = tuple(
+        CompoundDegradationEstimate(
+            estimate.compound,
+            estimate.seconds_per_lap,
+            estimate.confidence_lower_seconds_per_lap,
+            estimate.confidence_upper_seconds_per_lap,
+            estimate.observation_count,
+            1,
+            estimate.minimum_tire_age,
+            estimate.maximum_tire_age,
+        )
+        for estimate in session_analysis.estimates
+        if estimate.compound in compounds
+    )
+    analysis = DriverTireDegradationAnalysis(
+        metadata=session_analysis.metadata,
+        driver=driver,
+        mode=session_analysis.mode,
+        stints=tuple(stint for stint in session_analysis.stints if stint.driver == driver),
+        estimates=estimates,
+        validation=None,
+        observations=observations,
+        curves=session_analysis.curves.loc[
+            session_analysis.curves["compound"].isin(compounds)
+        ].reset_index(drop=True),
+        warnings=(
+            f"single_stint_estimate:{compounds[0]}",
+            "validation_unavailable:insufficient_independent_stints",
+        ),
+    )
+    return DriverTireAnalysisRun(analysis=analysis, snapshot_reused=True)
 
 
 def _analysis_run(key: SessionKey, mode: DegradationMode) -> TireAnalysisRun:

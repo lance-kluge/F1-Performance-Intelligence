@@ -8,18 +8,20 @@ import pandas as pd
 
 from f1pi.analysis.models import (
     DegradationMode,
+    DriverTireModelConfig,
     LapComparison,
     LapSelection,
     TireModelConfig,
 )
 from f1pi.domain.exceptions import LapNotFoundError
 from f1pi.domain.models import (
+    IngestionResult,
     LoadOptions,
     ScheduledEvent,
     SessionKey,
     SessionType,
 )
-from f1pi.ui.models import DriverOption, LoadedSession, TireAnalysisRun
+from f1pi.ui.models import DriverOption, DriverTireAnalysisRun, LoadedSession, TireAnalysisRun
 
 if TYPE_CHECKING:
     from f1pi.composition import Platform
@@ -41,7 +43,16 @@ class AnalysisFacade(Protocol):
 class TireDegradationFacade(Protocol):
     def list_available_events(self, year: int) -> tuple[ScheduledEvent, ...]: ...
 
+    def list_drivers(self, key: SessionKey) -> tuple[DriverOption, ...]: ...
+
     def analyze(self, key: SessionKey, mode: DegradationMode) -> TireAnalysisRun: ...
+
+    def analyze_drivers(
+        self,
+        key: SessionKey,
+        drivers: tuple[str, str],
+        mode: DegradationMode,
+    ) -> tuple[DriverTireAnalysisRun, DriverTireAnalysisRun]: ...
 
 
 class LapAnalysisFacade:
@@ -106,7 +117,57 @@ class TireAnalysisFacade:
         return tuple(supported_events)
 
     def analyze(self, key: SessionKey, mode: DegradationMode) -> TireAnalysisRun:
-        ingestion = self._platform.ingestion.ingest(
+        ingestion = self._ingest(key, mode)
+        analysis = self._platform.tire_model.analyze(key, TireModelConfig(mode=mode))
+        return TireAnalysisRun(analysis=analysis, snapshot_reused=ingestion.snapshot_reused)
+
+    def list_drivers(self, key: SessionKey) -> tuple[DriverOption, ...]:
+        """Load the lightweight race snapshot and expose its classified drivers."""
+        self._platform.ingestion.ingest(
+            key,
+            LoadOptions(telemetry=False, weather=False, messages=False),
+        )
+        session = self._platform.sessions.open(key)
+        minimum_supported_laps = DriverTireModelConfig().minimum_compound_laps
+        drivers = tuple(
+            driver
+            for driver in driver_options(session.results(), session.laps())
+            if len(driver.accurate_lap_numbers) >= minimum_supported_laps
+        )
+        if len(drivers) < 2:
+            raise LapNotFoundError(
+                "the session does not contain two drivers with enough accurate laps"
+            )
+        return drivers
+
+    def analyze_drivers(
+        self,
+        key: SessionKey,
+        drivers: tuple[str, str],
+        mode: DegradationMode,
+    ) -> tuple[DriverTireAnalysisRun, DriverTireAnalysisRun]:
+        """Run two existing driver models from one prepared session snapshot."""
+        ingestion = self._ingest(key, mode)
+        first = DriverTireAnalysisRun(
+            analysis=self._platform.tire_model.analyze_driver(
+                key,
+                drivers[0],
+                DriverTireModelConfig(mode=mode),
+            ),
+            snapshot_reused=ingestion.snapshot_reused,
+        )
+        second = DriverTireAnalysisRun(
+            analysis=self._platform.tire_model.analyze_driver(
+                key,
+                drivers[1],
+                DriverTireModelConfig(mode=mode),
+            ),
+            snapshot_reused=ingestion.snapshot_reused,
+        )
+        return first, second
+
+    def _ingest(self, key: SessionKey, mode: DegradationMode) -> IngestionResult:
+        return self._platform.ingestion.ingest(
             key,
             LoadOptions(
                 telemetry=False,
@@ -114,8 +175,6 @@ class TireAnalysisFacade:
                 messages=False,
             ),
         )
-        analysis = self._platform.tire_model.analyze(key, TireModelConfig(mode=mode))
-        return TireAnalysisRun(analysis=analysis, snapshot_reused=ingestion.snapshot_reused)
 
 
 def driver_options(results: pd.DataFrame, laps: pd.DataFrame) -> tuple[DriverOption, ...]:

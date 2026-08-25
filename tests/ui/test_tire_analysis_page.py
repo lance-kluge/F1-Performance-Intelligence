@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import nullcontext
 from pathlib import Path
@@ -16,6 +17,7 @@ from f1pi.ui.components.tire_degradation.results import (
     _validation_summary,
 )
 from f1pi.ui.pages import tire_degradation
+from f1pi.ui.pages.tire_degradation import TireAnalysisScope
 
 FIXTURE_APP = Path(__file__).parent / "fixtures" / "tire_analysis_app.py"
 
@@ -68,6 +70,61 @@ def test_mode_change_clears_previous_tire_analysis() -> None:
     assert len(app.get("plotly_chart")) == 0
     app.button[0].click().run()
     assert app.session_state["fake_tire_mode"] == "raw"
+
+
+def test_driver_view_compares_two_scoped_models_side_by_side() -> None:
+    app = AppTest.from_file(FIXTURE_APP).run()
+
+    app.radio(key="f1pi_tire_scope").set_value(TireAnalysisScope.DRIVERS).run()
+
+    assert [item.label for item in app.selectbox[-2:]] == ["Driver A", "Driver B"]
+    assert app.selectbox(key="f1pi_tire_driver_a").value.abbreviation == "NOR"
+    assert app.selectbox(key="f1pi_tire_driver_b").value.abbreviation == "VER"
+
+    app.button[0].click().run()
+
+    assert not app.exception
+    assert app.session_state["fake_tire_driver_comparison"] == ("NOR", "VER", "adjusted")
+    state = app.session_state[tire_degradation.TIRE_ANALYSIS_KEY]
+    assert state["scope"] == "drivers"
+    assert state["drivers"] == ("NOR", "VER")
+    markup = " ".join(element.proto.body for element in app.get("html"))
+    assert "NOR" in markup
+    assert "VER" in markup
+    assert "Driver degradation rates" in markup
+    assert "Modeled stint shapes" in markup
+    assert "estimated from one stint" in " ".join(item.value for item in app.warning)
+    charts = app.get("plotly_chart")
+    assert len(charts) == 4
+    first_curve = json.loads(charts[2].proto.spec)
+    second_curve = json.loads(charts[3].proto.spec)
+    assert first_curve["layout"]["xaxis"]["range"] == second_curve["layout"]["xaxis"]["range"]
+    assert first_curve["layout"]["yaxis"]["range"] == second_curve["layout"]["yaxis"]["range"]
+    assert len(app.dataframe) == 6
+
+
+def test_driver_state_is_scoped_to_selected_pair() -> None:
+    app = AppTest.from_file(FIXTURE_APP).run()
+    app.radio(key="f1pi_tire_scope").set_value(TireAnalysisScope.DRIVERS).run()
+    app.button[0].click().run()
+    state = app.session_state[tire_degradation.TIRE_ANALYSIS_KEY]
+    key = SessionKey(2026, 1, "R")
+
+    assert tire_degradation._driver_analysis_from_state(
+        state,
+        key,
+        DegradationMode.ADJUSTED,
+        ("NOR", "VER"),
+    )
+    assert (
+        tire_degradation._driver_analysis_from_state(
+            state,
+            key,
+            DegradationMode.ADJUSTED,
+            ("VER", "NOR"),
+        )
+        is None
+    )
 
 
 def test_tire_state_is_scoped_to_session_and_mode(tire_analysis_run) -> None:

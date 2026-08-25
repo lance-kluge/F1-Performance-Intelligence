@@ -7,7 +7,7 @@ from html import escape
 import streamlit as st
 
 from f1pi.domain.models import ScheduledEvent, ScheduledSession
-from f1pi.ui.models import TireAnalysisRun
+from f1pi.ui.models import DriverTireAnalysisRun, TireAnalysisRun
 
 
 def render_tire_intro() -> None:
@@ -56,6 +56,35 @@ def render_analysis_ready(run: TireAnalysisRun) -> None:
               {escape(analysis.metadata.session_name)}</strong>
             <small>{len(analysis.estimates)} modeled compounds · {modeled_laps} modeled laps ·
               {analysis.validation.fold_count} validation folds</small></div>
+          <span class="f1pi-session-ready__source">{escape(source)}</span>
+        </aside>
+        """
+    )
+
+
+def render_driver_analysis_ready(
+    runs: tuple[DriverTireAnalysisRun, DriverTireAnalysisRun],
+) -> None:
+    """Summarize a restored two-driver analysis without assuming validation exists."""
+    modeled_laps = sum(
+        int(run.analysis.observations["fitted_lap_time_seconds"].notna().sum()) for run in runs
+    )
+    source = (
+        "Local snapshot reused"
+        if all(run.snapshot_reused for run in runs)
+        else "New snapshot prepared"
+    )
+    first, second = (run.analysis for run in runs)
+    st.html(
+        f"""
+        <aside class="f1pi-tire-ready" aria-label="Current driver tire comparison">
+          <span class="f1pi-session-ready__icon" aria-hidden="true">✓</span>
+          <div><span>Current comparison</span>
+            <strong>{escape(first.driver)} vs {escape(second.driver)} ·
+              {escape(first.metadata.event_name)}</strong>
+            <small>{len(first.stints) + len(second.stints)} audited
+              {"stint" if len(first.stints) + len(second.stints) == 1 else "stints"} ·
+              {modeled_laps} modeled laps</small></div>
           <span class="f1pi-session-ready__source">{escape(source)}</span>
         </aside>
         """

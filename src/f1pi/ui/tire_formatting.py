@@ -55,12 +55,21 @@ def warning_message(warning: str) -> str:
     if warning.startswith("dropped_insufficient_degrees_of_freedom_feature:"):
         feature = warning.partition(":")[2].split(":")[-1].replace("_", " ")
         return f"{feature.title()} was omitted to preserve a stable fit."
+    if warning.startswith("single_stint_estimate:"):
+        compound = warning.partition(":")[2]
+        return (
+            f"{compound.title()} is estimated from one stint, so its trend is descriptive "
+            "rather than independently repeated."
+        )
     messages = {
         "incomplete_cross_validation": (
             "Some stints could not be scored out of sample; validation uses the folds that fit."
         ),
         "cluster_covariance_unavailable": (
             "There were too few independent stints for stint-clustered uncertainty."
+        ),
+        "validation_unavailable:insufficient_independent_stints": (
+            "Out-of-sample validation needs at least two independent stints and is unavailable."
         ),
     }
     return messages.get(warning, re.sub(r"[_:]", " ", warning).strip().capitalize() + ".")

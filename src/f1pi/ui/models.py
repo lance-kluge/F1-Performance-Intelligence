@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from f1pi.analysis.models import TireDegradationAnalysis
+from f1pi.analysis.models import DriverTireDegradationAnalysis, TireDegradationAnalysis
 from f1pi.domain.models import SessionKey, SessionMetadata
 
 
@@ -34,4 +34,12 @@ class TireAnalysisRun:
     """Completed tire model plus the provenance of its source snapshot."""
 
     analysis: TireDegradationAnalysis
+    snapshot_reused: bool
+
+
+@dataclass(frozen=True, slots=True)
+class DriverTireAnalysisRun:
+    """Completed driver-scoped tire model plus snapshot provenance."""
+
+    analysis: DriverTireDegradationAnalysis
     snapshot_reused: bool
