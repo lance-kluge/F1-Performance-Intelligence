@@ -144,6 +144,32 @@ def test_full_snapshot_satisfies_partial_request(
     assert source.calls == 1
 
 
+def test_partial_snapshot_upgrade_preserves_existing_telemetry(
+    tmp_path: Path, source_session: SourceSession
+) -> None:
+    source = FakeSource(source_session)
+    service, _ = build_service(tmp_path, source)
+    key = SessionKey(2022, "Bahrain", "R")
+    lap_analysis_options = LoadOptions(telemetry=True, weather=False, messages=False)
+    tire_analysis_options = LoadOptions(telemetry=False, weather=True, messages=False)
+
+    telemetry_snapshot = service.ingest(key, lap_analysis_options)
+    upgraded_snapshot = service.ingest(key, tire_analysis_options)
+    reused_by_lap_analysis = service.ingest(key, lap_analysis_options)
+
+    upgraded_kinds = {artifact.kind for artifact in upgraded_snapshot.artifacts}
+    assert not telemetry_snapshot.snapshot_reused
+    assert not upgraded_snapshot.snapshot_reused
+    assert source.options[-1].telemetry is True
+    assert source.options[-1].weather is True
+    assert source.options[-1].messages is False
+    assert DatasetKind.CAR_TELEMETRY in upgraded_kinds
+    assert DatasetKind.WEATHER in upgraded_kinds
+    assert reused_by_lap_analysis.snapshot_reused
+    assert reused_by_lap_analysis.run_id == upgraded_snapshot.run_id
+    assert source.calls == 2
+
+
 def test_ingestion_refreshes_snapshot_from_previous_schema_version(
     tmp_path: Path, source_session: SourceSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
