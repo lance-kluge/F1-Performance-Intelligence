@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from math import ceil, floor, log10
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -84,13 +85,19 @@ def degradation_rate_figure(analysis: TireAnalysis) -> go.Figure:
         )
     )
     figure.add_vline(x=0, line_color="rgba(245,243,237,.35)", line_width=1)
-    return _base_figure(
+    figure = _base_figure(
         figure,
         title="Compound degradation rate",
         x_title="Lap-time change per tire lap (seconds)",
         height=max(260, 90 + 62 * len(estimates)),
-        x_tickformat="+.3f",
     )
+    tick_values = _rate_axis_ticks(displayed_lower_bounds, displayed_upper_bounds)
+    figure.update_xaxes(
+        tickmode="array",
+        tickvals=tick_values,
+        ticktext=[f"{value:+.3f}" for value in tick_values],
+    )
+    return figure
 
 
 def degradation_curve_figure(
@@ -271,7 +278,33 @@ def _with_alpha(hex_color: str, alpha: float) -> str:
 
 
 def _display_rate(value: float) -> float:
-    return round(value, 3)
+    rounded = round(value, 3)
+    return 0.0 if rounded == 0 else rounded
+
+
+def _rate_axis_ticks(
+    lower_bounds: Sequence[float],
+    upper_bounds: Sequence[float],
+) -> tuple[float, ...]:
+    lower = min(*lower_bounds, 0.0)
+    upper = max(*upper_bounds, 0.0)
+    span = max(upper - lower, 0.001)
+    rough_step = span / 4
+    magnitude = 10 ** floor(log10(rough_step))
+    normalized_step = rough_step / magnitude
+    if normalized_step <= 1:
+        step = magnitude
+    elif normalized_step <= 2.5:
+        step = 2 * magnitude
+    elif normalized_step <= 5:
+        step = 5 * magnitude
+    else:
+        step = 10 * magnitude
+    padded_lower = lower - span * 0.05
+    padded_upper = upper + span * 0.05
+    first_tick = ceil(padded_lower / step)
+    last_tick = floor(padded_upper / step)
+    return tuple(_display_rate(index * step) for index in range(first_tick, last_tick + 1))
 
 
 def _padded_range(values: Sequence[float], *, minimum_padding: float) -> tuple[float, float]:
