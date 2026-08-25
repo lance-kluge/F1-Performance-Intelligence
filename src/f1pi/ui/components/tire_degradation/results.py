@@ -31,6 +31,7 @@ PLOT_CONFIG = {
     "responsive": True,
     "scrollZoom": False,
 }
+MIN_DISPLAYED_IMPROVEMENT_SECONDS = 0.0005
 
 
 def render_tire_results(run: TireAnalysisRun) -> None:
@@ -167,19 +168,8 @@ def _render_quality(analysis: TireDegradationAnalysis) -> None:
         width="stretch",
         key="tire_validation_error",
     )
-    improvement = metrics.baseline_mae_seconds - metrics.mae_seconds
-    if improvement > 0:
-        st.info(
-            f"The model improves mean absolute error by {improvement:.3f}s versus a simple "
-            "compound-average baseline on the scored laps.",
-            icon=":material/check_circle:",
-        )
-    else:
-        st.info(
-            "The model does not beat the simple compound-average baseline in this session. "
-            "Treat the fitted slopes as descriptive rather than strongly predictive.",
-            icon=":material/info:",
-        )
+    validation_message, validation_icon = _validation_summary(metrics)
+    st.info(validation_message, icon=validation_icon)
     render_result_section(
         2,
         "Interpretation boundary",
@@ -212,6 +202,28 @@ def _metric_cards(metrics: TireModelMetrics, folds: int) -> str:
           <small>{metrics.observation_count} laps scored</small></article>
       </div>
     """
+
+
+def _validation_summary(metrics: TireModelMetrics) -> tuple[str, str]:
+    improvement = metrics.baseline_mae_seconds - metrics.mae_seconds
+    if improvement >= MIN_DISPLAYED_IMPROVEMENT_SECONDS:
+        return (
+            f"The model improves mean absolute error by {improvement:.3f}s versus a simple "
+            "compound-average baseline on the scored laps.",
+            ":material/check_circle:",
+        )
+    if improvement > 0:
+        return (
+            "The model and simple compound-average baseline have the same mean absolute error "
+            "at the displayed 0.001s precision. Treat the fitted slopes as descriptive rather "
+            "than strongly predictive.",
+            ":material/info:",
+        )
+    return (
+        "The model does not beat the simple compound-average baseline in this session. Treat "
+        "the fitted slopes as descriptive rather than strongly predictive.",
+        ":material/info:",
+    )
 
 
 def _render_audit(analysis: TireDegradationAnalysis) -> None:

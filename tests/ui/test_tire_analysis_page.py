@@ -7,12 +7,13 @@ from unittest.mock import Mock
 
 from streamlit.testing.v1 import AppTest
 
-from f1pi.analysis.models import CompoundDegradationEstimate, DegradationMode
+from f1pi.analysis.models import CompoundDegradationEstimate, DegradationMode, TireModelMetrics
 from f1pi.domain.models import SessionKey
 from f1pi.ui.components.tire_degradation.results import (
     _eligibility_summary,
     _estimate_card,
     _observation_frame,
+    _validation_summary,
 )
 from f1pi.ui.pages import tire_degradation
 
@@ -165,3 +166,21 @@ def test_analysis_uses_one_honest_message_while_model_is_running(
         state="complete",
         expanded=False,
     )
+
+
+def test_validation_does_not_claim_a_rounded_zero_improvement() -> None:
+    metrics = TireModelMetrics(
+        "overall",
+        8,
+        0.1796,
+        0.24,
+        0.72,
+        0.18,
+    )
+
+    message, icon = _validation_summary(metrics)
+
+    assert "same mean absolute error" in message
+    assert "improves" not in message
+    assert "0.000s" not in message
+    assert icon == ":material/info:"
