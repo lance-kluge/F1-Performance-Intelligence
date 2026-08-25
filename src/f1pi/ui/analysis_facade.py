@@ -6,10 +6,20 @@ from typing import TYPE_CHECKING, Protocol
 
 import pandas as pd
 
-from f1pi.analysis.models import LapComparison, LapSelection
+from f1pi.analysis.models import (
+    DegradationMode,
+    LapComparison,
+    LapSelection,
+    TireModelConfig,
+)
 from f1pi.domain.exceptions import LapNotFoundError
-from f1pi.domain.models import LoadOptions, ScheduledEvent, SessionKey
-from f1pi.ui.models import DriverOption, LoadedSession
+from f1pi.domain.models import (
+    LoadOptions,
+    ScheduledEvent,
+    SessionKey,
+    SessionType,
+)
+from f1pi.ui.models import DriverOption, LoadedSession, TireAnalysisRun
 
 if TYPE_CHECKING:
     from f1pi.composition import Platform
@@ -26,6 +36,12 @@ class AnalysisFacade(Protocol):
         lap_a: LapSelection,
         lap_b: LapSelection,
     ) -> LapComparison: ...
+
+
+class TireDegradationFacade(Protocol):
+    def list_available_events(self, year: int) -> tuple[ScheduledEvent, ...]: ...
+
+    def analyze(self, key: SessionKey, mode: DegradationMode) -> TireAnalysisRun: ...
 
 
 class LapAnalysisFacade:
@@ -60,6 +76,42 @@ class LapAnalysisFacade:
         lap_b: LapSelection,
     ) -> LapComparison:
         return self._platform.lap_analysis.compare(key, lap_a, lap_b)
+
+
+class TireAnalysisFacade:
+    """Adapt tire-model services into a small UI-focused interface."""
+
+    def __init__(self, platform: Platform) -> None:
+        self._platform = platform
+
+    def list_available_events(self, year: int) -> tuple[ScheduledEvent, ...]:
+        events = self._platform.session_discovery.list_available_events(year)
+        supported_types = {SessionType.RACE, SessionType.SPRINT}
+        supported_events = []
+        for event in events:
+            sessions = tuple(
+                session for session in event.sessions if session.session_type in supported_types
+            )
+            if sessions:
+                supported_events.append(
+                    ScheduledEvent(
+                        year=event.year,
+                        round_number=event.round_number,
+                        event_name=event.event_name,
+                        country=event.country,
+                        location=event.location,
+                        sessions=sessions,
+                    )
+                )
+        return tuple(supported_events)
+
+    def analyze(self, key: SessionKey, mode: DegradationMode) -> TireAnalysisRun:
+        ingestion = self._platform.ingestion.ingest(
+            key,
+            LoadOptions(telemetry=False, weather=True, messages=False),
+        )
+        analysis = self._platform.tire_model.analyze(key, TireModelConfig(mode=mode))
+        return TireAnalysisRun(analysis=analysis, snapshot_reused=ingestion.snapshot_reused)
 
 
 def driver_options(results: pd.DataFrame, laps: pd.DataFrame) -> tuple[DriverOption, ...]:

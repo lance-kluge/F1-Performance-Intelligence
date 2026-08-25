@@ -35,14 +35,19 @@ streamlit run streamlit_app.py
 ```
 
 The landing experience is intentionally independent of FastF1 and the local data store, so it
-starts without downloading a session. A future analysis workspace will load data only after a
-user asks for a specific event and session.
+starts without downloading a session. Analysis workspaces load data only after a user asks for a
+specific event and session.
 
 In **Lap analysis**, choose a season, race weekend, and completed session. The first load retrieves
 and normalizes FastF1 telemetry; later loads reuse the immutable local snapshot. Each driver can
 use their fastest accurate lap or an exact accurate lap number. Results include sector deltas, a
 circuit trace, the live time delta, speed, throttle and brake channels, corner losses, and the
 evidence-backed explanation returned by the analytical service.
+
+In **Tire degradation**, choose a completed Race or Sprint and run the recommended
+condition-adjusted model or inspect the raw lap-time trend. Results lead with compound degradation
+rates and their uncertainty, then expose modeled curves, whole-stint validation, lap eligibility,
+and the stable stints behind the fit. Existing snapshots are reused and telemetry is not loaded.
 
 ## Quick start
 

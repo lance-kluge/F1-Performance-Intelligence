@@ -10,6 +10,7 @@ _STYLESHEET_PATHS = (
     "styles.css",
     "styles/workspace.css",
     "styles/results.css",
+    "styles/tire_degradation.css",
 )
 
 

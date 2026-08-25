@@ -60,5 +60,6 @@ def test_stylesheet_contains_scoped_accessibility_rules() -> None:
     assert ".f1pi-wordmark" in css
     assert ".f1pi-progress" in css
     assert ".f1pi-results-guide" in css
+    assert ".f1pi-compound-grid" in css
     assert ":focus-visible" in css
     assert "prefers-reduced-motion" in css

@@ -6,10 +6,12 @@ from dataclasses import dataclass
 
 from f1pi.domain.exceptions import (
     IncompatibleSchemaError,
+    InsufficientTireDataError,
     InvalidSessionError,
     LapNotFoundError,
     StorageError,
     TelemetryNotAvailableError,
+    UnsupportedTireSessionError,
     UpstreamRateLimitError,
     UpstreamUnavailableError,
 )
@@ -43,6 +45,17 @@ def user_error(error: Exception) -> UserError:
         return UserError(
             "Telemetry is incomplete",
             "One selected lap does not contain enough telemetry for a full comparison.",
+        )
+    if isinstance(error, UnsupportedTireSessionError):
+        return UserError(
+            "Session cannot be modeled",
+            "Choose a completed Race or Sprint session for stint-based tire analysis.",
+        )
+    if isinstance(error, InsufficientTireDataError):
+        return UserError(
+            "Not enough clean tire data",
+            "Choose another Race or Sprint. The model needs multiple clean stints for at "
+            "least one compound.",
         )
     if isinstance(error, IncompatibleSchemaError):
         return UserError(

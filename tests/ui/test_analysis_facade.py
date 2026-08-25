@@ -5,9 +5,16 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 
+from f1pi.analysis.models import DegradationMode
 from f1pi.domain.exceptions import LapNotFoundError
-from f1pi.domain.models import IngestionResult, SessionKey
-from f1pi.ui.analysis_facade import LapAnalysisFacade, driver_options
+from f1pi.domain.models import (
+    IngestionResult,
+    ScheduledEvent,
+    ScheduledSession,
+    SessionKey,
+    SessionType,
+)
+from f1pi.ui.analysis_facade import LapAnalysisFacade, TireAnalysisFacade, driver_options
 from f1pi.ui.models import LoadedSession
 
 
@@ -77,3 +84,57 @@ def test_facade_rejects_session_without_accurate_laps(loaded_session: LoadedSess
 
     with pytest.raises(LapNotFoundError, match="accurate timed lap"):
         LapAnalysisFacade(platform).load_session(SessionKey(2026, 1, "Q"))
+
+
+def test_tire_facade_exposes_only_race_and_sprint_sessions() -> None:
+    platform = Mock()
+    platform.session_discovery.list_available_events.return_value = (
+        ScheduledEvent(
+            2026,
+            1,
+            "Australian Grand Prix",
+            "Australia",
+            "Melbourne",
+            (
+                ScheduledSession(
+                    SessionType.QUALIFYING,
+                    "Qualifying",
+                    pd.Timestamp("2026-03-07", tz="UTC"),
+                ),
+                ScheduledSession(
+                    SessionType.SPRINT,
+                    "Sprint",
+                    pd.Timestamp("2026-03-08", tz="UTC"),
+                ),
+                ScheduledSession(
+                    SessionType.RACE,
+                    "Race",
+                    pd.Timestamp("2026-03-09", tz="UTC"),
+                ),
+            ),
+        ),
+    )
+
+    events = TireAnalysisFacade(platform).list_available_events(2026)
+
+    assert len(events) == 1
+    assert [session.session_type.value for session in events[0].sessions] == ["S", "R"]
+
+
+def test_tire_facade_ingests_minimum_snapshot_and_runs_selected_mode() -> None:
+    platform = Mock()
+    platform.ingestion.ingest.return_value = IngestionResult("session", "run", True, ())
+    platform.tire_model.analyze.return_value = object()
+    facade = TireAnalysisFacade(platform)
+    key = SessionKey(2026, 1, "R")
+
+    run = facade.analyze(key, DegradationMode.RAW)
+
+    assert run.snapshot_reused is True
+    assert run.analysis is platform.tire_model.analyze.return_value
+    options = platform.ingestion.ingest.call_args.args[1]
+    assert options.telemetry is False
+    assert options.weather is True
+    assert options.messages is False
+    config = platform.tire_model.analyze.call_args.args[1]
+    assert config.mode is DegradationMode.RAW
