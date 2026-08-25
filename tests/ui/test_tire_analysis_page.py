@@ -8,7 +8,10 @@ from streamlit.testing.v1 import AppTest
 
 from f1pi.analysis.models import DegradationMode
 from f1pi.domain.models import SessionKey
-from f1pi.ui.components.tire_degradation.results import _eligibility_summary
+from f1pi.ui.components.tire_degradation.results import (
+    _eligibility_summary,
+    _observation_frame,
+)
 from f1pi.ui.pages import tire_degradation
 
 FIXTURE_APP = Path(__file__).parent / "fixtures" / "tire_analysis_app.py"
@@ -98,3 +101,6 @@ def test_audit_distinguishes_clean_unsupported_compound_laps(tire_analysis_run) 
 
     support_row = summary.loc[summary["Decision"].eq("Compound below support threshold")].iloc[0]
     assert support_row["Laps"] == 1
+    unsupported_lap = _observation_frame(observations).iloc[0]
+    assert not bool(unsupported_lap["Included"])
+    assert unsupported_lap["Decision"] == "Compound below support threshold"

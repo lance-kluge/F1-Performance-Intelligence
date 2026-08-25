@@ -252,10 +252,7 @@ def _render_audit(analysis: TireDegradationAnalysis) -> None:
 
 
 def _eligibility_summary(observations: pd.DataFrame) -> pd.DataFrame:
-    decisions = observations["exclusion_reason"].fillna("").astype(str)
-    decisions = decisions.mask(decisions.eq(""), "included")
-    below_support = observations["eligible"] & observations["fitted_lap_time_seconds"].isna()
-    decisions = decisions.mask(below_support, "below_compound_support")
+    decisions = _model_decisions(observations)
     counts = decisions.value_counts()
     total = max(len(observations), 1)
     return pd.DataFrame(
@@ -265,6 +262,13 @@ def _eligibility_summary(observations: pd.DataFrame) -> pd.DataFrame:
             "Share": counts.to_numpy(dtype=float) / total,
         }
     )
+
+
+def _model_decisions(observations: pd.DataFrame) -> pd.Series:
+    decisions = observations["exclusion_reason"].fillna("").astype(str)
+    decisions = decisions.mask(decisions.eq(""), "included")
+    below_support = observations["eligible"] & observations["fitted_lap_time_seconds"].isna()
+    return decisions.mask(below_support, "below_compound_support")
 
 
 def _decision_label(reason: str) -> str:
@@ -309,10 +313,10 @@ def _observation_frame(observations: pd.DataFrame) -> pd.DataFrame:
         ],
     ].copy()
     display["compound"] = display["compound"].astype(str).str.title()
-    display["exclusion_reason"] = (
-        display["exclusion_reason"]
-        .fillna("")
-        .map(lambda reason: "—" if not reason else exclusion_label(str(reason)))
+    decisions = _model_decisions(observations)
+    display["eligible"] = decisions.eq("included")
+    display["exclusion_reason"] = decisions.map(
+        lambda reason: "—" if reason == "included" else _decision_label(reason)
     )
     display.columns = [
         "Driver",
