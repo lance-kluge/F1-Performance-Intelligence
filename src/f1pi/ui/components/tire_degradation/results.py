@@ -115,7 +115,7 @@ def _render_degradation(analysis: TireDegradationAnalysis) -> None:
     render_result_section(
         2,
         "Modeled stint shape",
-        "Lines stay inside each compound's observed tire-age range; shaded areas show uncertainty.",
+        "Compare raw laps with trends evaluated at consistent reference conditions.",
     )
     st.plotly_chart(
         degradation_curve_figure(analysis),
@@ -124,8 +124,10 @@ def _render_degradation(analysis: TireDegradationAnalysis) -> None:
         key="tire_degradation_curves",
     )
     st.caption(
-        "Dots are clean laps. Dark bands show confidence in the modeled mean; lighter outer "
-        "bands show the wider range expected for an individual lap."
+        "Dots are raw clean-lap times under their recorded driver, weather, and race conditions. "
+        "Lines hold changing conditions at each compound's median and average driver effects, so "
+        "dot-to-line distance is not a model residual. Dark bands show confidence in the modeled "
+        "mean; lighter outer bands show the wider range expected for an individual lap."
     )
 
 

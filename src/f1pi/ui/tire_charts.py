@@ -111,7 +111,7 @@ def degradation_curve_figure(analysis: TireDegradationAnalysis) -> go.Figure:
                 x=curve["tire_age_laps"],
                 y=curve["predicted_lap_time_seconds"],
                 mode="lines",
-                name=f"{compound.title()} modeled trend",
+                name=f"{compound.title()} reference-condition trend",
                 legendgroup=compound,
                 line={"color": color, "width": 2.5},
                 hovertemplate=(
@@ -125,21 +125,21 @@ def degradation_curve_figure(analysis: TireDegradationAnalysis) -> go.Figure:
                 x=observations["tire_age_laps"],
                 y=observations["lap_time_seconds"],
                 mode="markers",
-                name=f"{compound.title()} clean laps",
+                name=f"{compound.title()} raw clean laps",
                 legendgroup=compound,
                 showlegend=False,
                 marker={"color": color, "size": 5, "opacity": 0.34},
                 customdata=observations[["driver", "lap_number", "stint_id"]],
                 hovertemplate=(
                     f"{compound.title()}<br>%{{customdata[0]}} · lap %{{customdata[1]}}<br>"
-                    "Tire age %{x:.1f} · lap time %{y:.3f}s<br>"
+                    "Tire age %{x:.1f} · raw lap time %{y:.3f}s<br>"
                     "Stint %{customdata[2]}<extra></extra>"
                 ),
             )
         )
     return _base_figure(
         figure,
-        title="Lap time across tire age",
+        title="Raw laps and reference-condition trend",
         x_title="Tire age (laps)",
         y_title="Lap time (seconds)",
         height=520,
