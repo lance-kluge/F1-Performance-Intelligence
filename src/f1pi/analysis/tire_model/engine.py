@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 
 from f1pi.analysis.models import (
     CompoundDegradationEstimate,
     DegradationMode,
+    DriverTireDegradationAnalysis,
+    DriverTireModelConfig,
     TireDegradationAnalysis,
     TireModelConfig,
+    TireModelValidation,
+    TireStintSummary,
 )
 from f1pi.analysis.tire_model.analysis_session import TireAnalysisSession
 from f1pi.analysis.tire_model.features import (
@@ -27,6 +33,7 @@ from f1pi.analysis.tire_model.regression import (
 from f1pi.analysis.tire_model.validation import validate_model
 from f1pi.domain.exceptions import (
     DatasetNotAvailableError,
+    DriverNotFoundError,
     InsufficientTireDataError,
     UnsupportedTireSessionError,
 )
@@ -45,6 +52,59 @@ class TireDegradationEngine:
         config: TireModelConfig | None = None,
     ) -> TireDegradationAnalysis:
         config = config or TireModelConfig()
+        observations = self._prepare_session_observations(session, config)
+        artifacts = self._fit_analysis(observations, config, validation_required=True)
+        if artifacts.validation is None:  # pragma: no cover - guarded by validation_required
+            raise AssertionError("session-wide tire analysis requires validation")
+        return TireDegradationAnalysis(
+            metadata=session.metadata,
+            mode=config.mode,
+            stints=artifacts.stints,
+            estimates=artifacts.estimates,
+            validation=artifacts.validation,
+            observations=artifacts.observations,
+            curves=artifacts.curves,
+            warnings=artifacts.warnings,
+        )
+
+    def analyze_driver(
+        self,
+        session: TireAnalysisSession,
+        driver: str,
+        config: DriverTireModelConfig | None = None,
+    ) -> DriverTireDegradationAnalysis:
+        """Fit tire degradation for one driver while retaining full-session context."""
+        config = config or DriverTireModelConfig()
+        observations = self._prepare_session_observations(session, config)
+        canonical_driver = driver.strip().upper()
+        driver_observations = observations.loc[
+            observations["driver"].astype("string").eq(canonical_driver)
+        ].copy()
+        if driver_observations.empty:
+            raise DriverNotFoundError(f"driver is not present in session laps: {driver!r}")
+
+        artifacts = self._fit_analysis(
+            driver_observations,
+            config,
+            validation_required=False,
+        )
+        return DriverTireDegradationAnalysis(
+            metadata=session.metadata,
+            driver=canonical_driver,
+            mode=config.mode,
+            stints=artifacts.stints,
+            estimates=artifacts.estimates,
+            validation=artifacts.validation,
+            observations=artifacts.observations,
+            curves=artifacts.curves,
+            warnings=artifacts.warnings,
+        )
+
+    @staticmethod
+    def _prepare_session_observations(
+        session: TireAnalysisSession,
+        config: TireModelConfig,
+    ) -> pd.DataFrame:
         if session.metadata.session_type not in {SessionType.RACE, SessionType.SPRINT}:
             raise UnsupportedTireSessionError(
                 "tire degradation supports Race and Sprint sessions only"
@@ -63,7 +123,15 @@ class TireDegradationEngine:
                 ) from error
             weather = pd.DataFrame()
 
-        observations = prepare_observations(session.laps(), weather, track_status, config)
+        return prepare_observations(session.laps(), weather, track_status, config)
+
+    def _fit_analysis(
+        self,
+        observations: pd.DataFrame,
+        config: TireModelConfig,
+        *,
+        validation_required: bool,
+    ) -> _TireAnalysisArtifacts:
         compounds, support_warnings = supported_compounds(observations, config)
         if not compounds:
             raise InsufficientTireDataError(
@@ -75,8 +143,17 @@ class TireDegradationEngine:
         fitted_regressor = self._regressor.fit(
             eligible_observations, config.mode, config.confidence_level
         )
-        validation, validation_warnings = validate_model(
-            eligible_observations, config.mode, config, self._regressor
+        validation: TireModelValidation | None
+        if validation_required:
+            validation, validation_warnings = validate_model(
+                eligible_observations, config.mode, config, self._regressor
+            )
+        else:
+            validation, validation_warnings = _optional_driver_validation(
+                eligible_observations, config, self._regressor
+            )
+        scope_warnings = (
+            () if validation_required else _single_stint_warnings(eligible_observations)
         )
 
         observations["fitted_lap_time_seconds"] = np.nan
@@ -97,11 +174,14 @@ class TireDegradationEngine:
             eligible_observations, compounds, fitted_regressor, config.curve_points
         )
         analysis_warnings = _unique_warnings(
-            (*support_warnings, *fitted_regressor.warnings, *validation_warnings)
+            (
+                *support_warnings,
+                *scope_warnings,
+                *fitted_regressor.warnings,
+                *validation_warnings,
+            )
         )
-        return TireDegradationAnalysis(
-            metadata=session.metadata,
-            mode=config.mode,
+        return _TireAnalysisArtifacts(
             stints=summarize_stints(observations),
             estimates=estimates,
             validation=validation,
@@ -132,6 +212,40 @@ class TireDegradationEngine:
             minimum_tire_age=float(compound_observations["tire_age_laps"].min()),
             maximum_tire_age=float(compound_observations["tire_age_laps"].max()),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class _TireAnalysisArtifacts:
+    stints: tuple[TireStintSummary, ...]
+    estimates: tuple[CompoundDegradationEstimate, ...]
+    validation: TireModelValidation | None
+    observations: pd.DataFrame
+    curves: pd.DataFrame
+    warnings: tuple[str, ...]
+
+
+def _optional_driver_validation(
+    eligible_observations: pd.DataFrame,
+    config: TireModelConfig,
+    regressor: TireRegressor,
+) -> tuple[TireModelValidation | None, tuple[str, ...]]:
+    if eligible_observations["stint_id"].nunique() < 2:
+        return None, ("validation_unavailable:insufficient_independent_stints",)
+    try:
+        return validate_model(eligible_observations, config.mode, config, regressor)
+    except InsufficientTireDataError:
+        return None, ("validation_unavailable:insufficient_independent_stints",)
+
+
+def _single_stint_warnings(observations: pd.DataFrame) -> tuple[str, ...]:
+    eligible_observations = observations.loc[observations["eligible"]]
+    return tuple(
+        f"single_stint_estimate:{compound}"
+        for compound, compound_observations in eligible_observations.groupby(
+            "compound", sort=True
+        )
+        if compound_observations["stint_id"].nunique() == 1
+    )
 
 
 def _prediction_curves(

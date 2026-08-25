@@ -35,8 +35,8 @@ class TireModelConfig:
             raise ValueError("confidence_level must be in (0, 1)")
         if self.minimum_stint_laps < 2:
             raise ValueError("minimum_stint_laps must be at least 2")
-        if self.minimum_compound_stints < 2:
-            raise ValueError("minimum_compound_stints must be at least 2")
+        if self.minimum_compound_stints < 1:
+            raise ValueError("minimum_compound_stints must be at least 1")
         if self.minimum_compound_laps < self.minimum_stint_laps:
             raise ValueError("minimum_compound_laps must cover at least one stint")
         if self.quick_lap_ratio < 1:
@@ -45,6 +45,14 @@ class TireModelConfig:
             raise ValueError("maximum_validation_folds must be at least 2")
         if self.curve_points < 2:
             raise ValueError("curve_points must be at least 2")
+
+
+@dataclass(frozen=True, slots=True)
+class DriverTireModelConfig(TireModelConfig):
+    """Driver-scoped defaults for the shared tire-modeling pipeline."""
+
+    minimum_compound_stints: int = 1
+    minimum_compound_laps: int = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +105,21 @@ class TireDegradationAnalysis:
     stints: tuple[TireStintSummary, ...]
     estimates: tuple[CompoundDegradationEstimate, ...]
     validation: TireModelValidation
+    observations: pd.DataFrame
+    curves: pd.DataFrame
+    warnings: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DriverTireDegradationAnalysis:
+    """Tire degradation results scoped to one driver within a session."""
+
+    metadata: SessionMetadata
+    driver: str
+    mode: DegradationMode
+    stints: tuple[TireStintSummary, ...]
+    estimates: tuple[CompoundDegradationEstimate, ...]
+    validation: TireModelValidation | None
     observations: pd.DataFrame
     curves: pd.DataFrame
     warnings: tuple[str, ...]

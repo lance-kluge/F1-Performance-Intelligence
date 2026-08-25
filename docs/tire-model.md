@@ -18,6 +18,18 @@ machine-readable warnings, and two stable DataFrames:
 
 Curves never extend beyond the minimum and maximum tire age observed for their compound.
 
+`TireModelService.analyze_driver` accepts a `SessionKey`, driver abbreviation, and optional
+`DriverTireModelConfig`. It runs the same preparation, regression, uncertainty, and curve pipeline
+after selecting that driver's rows. The returned `DriverTireDegradationAnalysis` is self-describing
+through its canonical `driver` value, and its stints and observations never contain another
+driver. Full-session preparation happens before selection so race progress retains the session's
+actual lap range, including when the selected driver retires early.
+
+Driver defaults allow a compound supported by one physical stint and five clean laps. Session-wide
+defaults still require two stints and eight laps. A single-stint driver estimate is marked with a
+`single_stint_estimate:<compound>` warning rather than being presented as equivalent to a pooled,
+repeated-stint estimate.
+
 ## Stints and clean laps
 
 Upstream stint numbers are respected, but a new stable stint starts whenever the driver changes
@@ -49,11 +61,22 @@ uncertainty in the fitted mean; prediction bands additionally include residual l
 variation. Adjusted compound curves average over observed drivers and hold changing conditions at
 that compound's median values.
 
+Driver-scoped curves use only the selected driver's fitted design. With one driver and one stint
+per compound, tire age can be collinear with race progress; the existing deterministic design
+selection drops the redundant condition and reports it. Such a result is a within-stint trend, not
+evidence that fuel load and track evolution were independently identified.
+
 ## Validation and limitations
 
 Cross-validation assigns whole stints to folds, preventing laps from one stint from appearing in
 both training and validation data. Up to five deterministic folds report MAE, RMSE, R², and the
 MAE of a training-compound-mean baseline overall and per compound.
+
+Driver analysis preserves the same whole-stint rule. When independent stints cannot produce a
+valid held-out fit, `validation` is `None` and warnings include
+`validation_unavailable:insufficient_independent_stints`. The model never substitutes random
+lap-level folds. Multiple stints use stint-clustered covariance; a model containing only one stint
+uses the existing HC3 covariance fallback and reports `cluster_covariance_unavailable`.
 
 The model estimates conditional associations within one session. Race progress is only a proxy
 for fuel burn and track evolution, while traffic, energy deployment, damage, setup, and driver

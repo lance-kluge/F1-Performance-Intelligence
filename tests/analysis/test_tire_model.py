@@ -7,6 +7,7 @@ import pytest
 
 from f1pi.analysis import (
     DegradationMode,
+    DriverTireModelConfig,
     TireDegradationEngine,
     TireModelConfig,
 )
@@ -15,6 +16,7 @@ from f1pi.analysis.tire_model.regression import StatsmodelsTireRegressor, slope_
 from f1pi.analysis.tire_model.stints import extract_stints
 from f1pi.domain.exceptions import (
     DatasetNotAvailableError,
+    DriverNotFoundError,
     InsufficientTireDataError,
     UnsupportedTireSessionError,
 )
@@ -213,6 +215,88 @@ def test_raw_and_adjusted_models_return_compound_rates_and_bands() -> None:
         assert (curve["mean_confidence_upper_seconds"] <= curve["prediction_upper_seconds"]).all()
 
 
+def test_driver_model_returns_only_selected_driver_with_session_race_progress() -> None:
+    session = StubTireAnalysisSession()
+    session._laps = session._laps.loc[
+        session._laps["driver"].ne("AAA") | session._laps["lap_number"].le(8)
+    ].copy()
+
+    analysis = TireDegradationEngine().analyze_driver(
+        session,
+        " aaa ",
+        DriverTireModelConfig(
+            minimum_compound_laps=3,
+            quick_lap_ratio=2.0,
+        ),
+    )
+
+    assert analysis.driver == "AAA"
+    assert analysis.mode is DegradationMode.ADJUSTED
+    assert set(analysis.observations["driver"]) == {"AAA"}
+    assert {stint.driver for stint in analysis.stints} == {"AAA"}
+    assert {estimate.compound for estimate in analysis.estimates} == {"MEDIUM", "SOFT"}
+    assert analysis.observations["race_progress"].max() == pytest.approx(7 / 11)
+    assert analysis.validation is None
+    assert "validation_unavailable:insufficient_independent_stints" in analysis.warnings
+    assert "single_stint_estimate:MEDIUM" in analysis.warnings
+    assert "single_stint_estimate:SOFT" in analysis.warnings
+    assert "dropped_collinear_feature:condition::race_progress" in analysis.warnings
+
+
+def test_driver_model_uses_hc3_when_only_one_stint_is_available() -> None:
+    session = StubTireAnalysisSession()
+    session._laps = session._laps.loc[
+        session._laps["driver"].ne("AAA") | session._laps["lap_number"].le(5)
+    ].copy()
+
+    analysis = TireDegradationEngine().analyze_driver(
+        session,
+        "AAA",
+        DriverTireModelConfig(mode=DegradationMode.RAW, quick_lap_ratio=2.0),
+    )
+
+    assert {estimate.compound for estimate in analysis.estimates} == {"SOFT"}
+    assert analysis.estimates[0].stint_count == 1
+    assert analysis.validation is None
+    assert "cluster_covariance_unavailable" in analysis.warnings
+    assert "single_stint_estimate:SOFT" in analysis.warnings
+
+
+def test_driver_model_validates_repeated_same_compound_stints() -> None:
+    session = StubTireAnalysisSession()
+    selected_driver = session._laps["driver"].eq("AAA")
+    session._laps.loc[selected_driver, "compound"] = "SOFT"
+
+    analysis = TireDegradationEngine().analyze_driver(
+        session,
+        "AAA",
+        DriverTireModelConfig(mode=DegradationMode.RAW, quick_lap_ratio=2.0),
+    )
+
+    assert len(analysis.estimates) == 1
+    assert analysis.estimates[0].stint_count == 2
+    assert analysis.validation is not None
+    assert analysis.validation.fold_count == 2
+    assert "single_stint_estimate:SOFT" not in analysis.warnings
+
+
+def test_driver_model_rejects_unknown_driver() -> None:
+    with pytest.raises(DriverNotFoundError, match="NOT-A-DRIVER"):
+        TireDegradationEngine().analyze_driver(
+            StubTireAnalysisSession(), "NOT-A-DRIVER"
+        )
+
+
+def test_driver_model_does_not_fall_back_to_other_drivers() -> None:
+    session = StubTireAnalysisSession()
+    session._laps = session._laps.loc[
+        session._laps["driver"].ne("AAA") | session._laps["lap_number"].le(2)
+    ].copy()
+
+    with pytest.raises(InsufficientTireDataError, match="no compound"):
+        TireDegradationEngine().analyze_driver(session, "AAA")
+
+
 def test_clustered_intervals_use_stint_inference_degrees_of_freedom() -> None:
     observations = pd.DataFrame(
         {
@@ -349,7 +433,7 @@ def test_non_green_session_has_no_modeling_laps() -> None:
     [
         {"confidence_level": 1.0},
         {"minimum_stint_laps": 1},
-        {"minimum_compound_stints": 1},
+        {"minimum_compound_stints": 0},
         {"minimum_compound_laps": 2},
         {"quick_lap_ratio": 0.9},
         {"maximum_validation_folds": 1},
@@ -361,3 +445,10 @@ def test_tire_model_config_rejects_invalid_values(
 ) -> None:
     with pytest.raises(ValueError):
         TireModelConfig(**invalid_config_values)  # type: ignore[arg-type]
+
+
+def test_driver_tire_model_config_uses_driver_support_defaults() -> None:
+    config = DriverTireModelConfig()
+
+    assert config.minimum_compound_stints == 1
+    assert config.minimum_compound_laps == 5
