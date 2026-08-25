@@ -39,6 +39,22 @@ def _session_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
     return results, laps
 
 
+def _tire_session_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
+    results, _ = _session_frames()
+    drivers = ["NOR"] * 5 + ["VER"] * 5 + ["ANT"] * 4
+    lap_numbers = list(range(1, 6)) + list(range(1, 6)) + list(range(1, 5))
+    laps = pd.DataFrame(
+        {
+            "driver": drivers,
+            "lap_number": pd.array(lap_numbers, dtype="Int64"),
+            "lap_time_ns": pd.array(range(90, 90 + len(drivers)), dtype="Int64"),
+            "lap_start_time_ns": pd.array(range(1, len(drivers) + 1), dtype="Int64"),
+            "is_accurate": pd.array([True] * len(drivers), dtype="boolean"),
+        }
+    )
+    return results, laps
+
+
 def test_driver_options_are_classified_and_accurate_only() -> None:
     results, laps = _session_frames()
 
@@ -151,7 +167,7 @@ def test_tire_facade_ingests_mode_specific_snapshot(
 
 
 def test_tire_facade_lists_drivers_from_lightweight_snapshot() -> None:
-    results, laps = _session_frames()
+    results, laps = _tire_session_frames()
     platform = Mock()
     platform.ingestion.ingest.return_value = IngestionResult("session", "run", True, ())
     stored = Mock()
@@ -163,6 +179,7 @@ def test_tire_facade_lists_drivers_from_lightweight_snapshot() -> None:
     drivers = TireAnalysisFacade(platform).list_drivers(key)
 
     assert [driver.abbreviation for driver in drivers] == ["NOR", "VER"]
+    assert all(len(driver.accurate_lap_numbers) >= 5 for driver in drivers)
     options = platform.ingestion.ingest.call_args.args[1]
     assert options.telemetry is False
     assert options.weather is False

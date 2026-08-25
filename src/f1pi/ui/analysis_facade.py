@@ -128,9 +128,16 @@ class TireAnalysisFacade:
             LoadOptions(telemetry=False, weather=False, messages=False),
         )
         session = self._platform.sessions.open(key)
-        drivers = driver_options(session.results(), session.laps())
+        minimum_supported_laps = DriverTireModelConfig().minimum_compound_laps
+        drivers = tuple(
+            driver
+            for driver in driver_options(session.results(), session.laps())
+            if len(driver.accurate_lap_numbers) >= minimum_supported_laps
+        )
         if len(drivers) < 2:
-            raise LapNotFoundError("the session does not contain two drivers with accurate laps")
+            raise LapNotFoundError(
+                "the session does not contain two drivers with enough accurate laps"
+            )
         return drivers
 
     def analyze_drivers(
