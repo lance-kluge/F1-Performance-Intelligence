@@ -25,8 +25,8 @@ def render_tire_intro() -> None:
     )
 
 
-def render_tire_progress(has_analysis: bool) -> None:
-    active_step = 3 if has_analysis else 1
+def render_tire_progress(active_step: int) -> None:
+    """Render the workflow with the selected session or result step active."""
     steps = (
         (1, "Session", "Choose a Race or Sprint"),
         (2, "Model", "Adjust for changing conditions"),

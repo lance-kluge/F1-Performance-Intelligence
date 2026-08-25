@@ -27,6 +27,14 @@ def test_tire_workflow_runs_adjusted_model_and_renders_results() -> None:
         "Session",
     ]
     assert app.radio(key="f1pi_tire_mode").value is DegradationMode.ADJUSTED
+    progress = next(
+        element.proto.body
+        for element in app.get("html")
+        if 'aria-label="Tire analysis progress"' in element.proto.body
+    )
+    active_step = progress.split("f1pi-progress__item--active", 1)[1].split("</li>", 1)[0]
+    assert "<strong>Model</strong>" in active_step
+    assert "Current" in active_step
 
     app.button[0].click().run()
 
@@ -45,6 +53,14 @@ def test_tire_workflow_runs_adjusted_model_and_renders_results() -> None:
     assert len(app.get("plotly_chart")) == 3
     assert len(app.dataframe) == 3
     assert any("Rainfall did not vary" in warning.value for warning in app.warning)
+    progress = next(
+        element.proto.body
+        for element in app.get("html")
+        if 'aria-label="Tire analysis progress"' in element.proto.body
+    )
+    active_step = progress.split("f1pi-progress__item--active", 1)[1].split("</li>", 1)[0]
+    assert "<strong>Results</strong>" in active_step
+    assert "Current" in active_step
 
 
 def test_mode_change_clears_previous_tire_analysis() -> None:

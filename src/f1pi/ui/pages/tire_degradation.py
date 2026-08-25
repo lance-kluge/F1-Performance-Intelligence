@@ -38,12 +38,17 @@ def render_tire_degradation() -> None:
     """Render session selection, model controls, and durable tire results."""
     render_wordmark(section="Tire degradation")
     render_tire_intro()
-    render_tire_progress(st.session_state.get(TIRE_ANALYSIS_KEY) is not None)
+    progress_placeholder = st.empty()
     facade = get_tire_analysis_facade()
     selection = _render_session_selection()
     if selection is None:
+        with progress_placeholder.container():
+            render_tire_progress(1)
         render_footer()
         return
+    with progress_placeholder.container():
+        active_step = 3 if st.session_state.get(TIRE_ANALYSIS_KEY) is not None else 2
+        render_tire_progress(active_step)
     key, event, session = selection
     render_tire_session_context(event, session)
     mode = _render_model_controls()
