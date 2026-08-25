@@ -63,7 +63,9 @@ derived compatibility views.
 The tire model follows the same boundary: an application service opens one immutable Race or
 Sprint snapshot, and a presentation-neutral engine reads only laps, weather, and track status.
 Stint extraction, feature preparation, regression, and whole-stint validation are independent
-modules. Fitted models and derived feature frames are intentionally not persisted.
+modules. Session-wide and individual-driver entry points share that pipeline; driver selection is
+applied only after full-session feature preparation so session-relative conditions remain valid.
+Fitted models and derived feature frames are intentionally not persisted.
 
 ## Session discovery
 

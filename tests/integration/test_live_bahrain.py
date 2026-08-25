@@ -61,6 +61,11 @@ def test_2022_bahrain_race_end_to_end(tmp_path: Path) -> None:
         <= tire_analysis.curves["prediction_upper_seconds"]
     ).all()
 
+    driver_tire_analysis = platform.tire_model.analyze_driver(key, "LEC")
+    assert driver_tire_analysis.driver == "LEC"
+    assert driver_tire_analysis.estimates
+    assert driver_tire_analysis.observations["driver"].eq("LEC").all()
+
     second = platform.ingestion.ingest(key)
     assert second.snapshot_reused
     assert second.run_id == first.run_id

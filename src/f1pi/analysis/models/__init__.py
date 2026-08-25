@@ -29,6 +29,8 @@ from f1pi.analysis.models.synchronization_config import SynchronizationConfig
 from f1pi.analysis.models.tire_model import (
     CompoundDegradationEstimate,
     DegradationMode,
+    DriverTireDegradationAnalysis,
+    DriverTireModelConfig,
     TireDegradationAnalysis,
     TireModelConfig,
     TireModelMetrics,
@@ -46,6 +48,8 @@ __all__ = [
     "DegradationMode",
     "DriverCornerMetrics",
     "DriverStraightMetrics",
+    "DriverTireDegradationAnalysis",
+    "DriverTireModelConfig",
     "FindingEvidence",
     "FindingKind",
     "LapComparison",

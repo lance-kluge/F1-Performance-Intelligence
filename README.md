@@ -127,14 +127,18 @@ platform.ingestion.ingest(key)
 
 adjusted = platform.tire_model.analyze(key)
 raw = platform.tire_model.analyze(key, TireModelConfig(mode=DegradationMode.RAW))
+leclerc = platform.tire_model.analyze_driver(key, "LEC")
 
 print(adjusted.estimates)  # compound rates and 95% confidence intervals
 print(adjusted.curves.head())  # chart-ready mean and individual-lap bands
+print(leclerc.observations.head())  # selected-driver laps only
 ```
 
 Adjusted mode controls for driver, race progress, and changing weather. Raw mode exposes the
 unadjusted within-session trend. Both are associations from observed clean laps and do not claim
-that tire age caused every recorded lap-time change.
+that tire age caused every recorded lap-time change. Individual-driver analysis uses the same
+pipeline with driver-appropriate support thresholds; validation is `None` when whole-stint
+cross-validation is not possible.
 
 Snapshot and upstream refreshes are deliberately separate:
 

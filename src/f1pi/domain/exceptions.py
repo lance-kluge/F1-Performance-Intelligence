@@ -57,5 +57,9 @@ class UnsupportedTireSessionError(TireModelError):
     """The session type does not support stint-based tire modeling."""
 
 
+class DriverNotFoundError(TireModelError):
+    """The requested driver is not present in the session laps."""
+
+
 class InsufficientTireDataError(TireModelError):
     """No compound has enough clean, identifiable data for a tire model."""
