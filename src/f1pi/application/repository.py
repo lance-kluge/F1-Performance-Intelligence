@@ -27,6 +27,7 @@ from f1pi.processing.schemas import (
     LapsSchema,
     PositionSchema,
     ResultsSchema,
+    TrackStatusSchema,
     WeatherSchema,
     validate_frame,
 )
@@ -61,6 +62,11 @@ class SessionDataset:
 
     def weather(self) -> DataFrame[WeatherSchema]:
         return cast(DataFrame[WeatherSchema], self._read(DatasetKind.WEATHER))
+
+    def track_status(self) -> DataFrame[TrackStatusSchema]:
+        return cast(
+            DataFrame[TrackStatusSchema], self._read(DatasetKind.TRACK_STATUS)
+        )
 
     def car_telemetry(self, driver: str | None = None) -> DataFrame[CarTelemetrySchema]:
         return cast(

@@ -160,7 +160,7 @@ class SessionMetadata:
     session_name: str
     session_date_utc: datetime
     fastf1_version: str
-    schema_version: int = 2
+    schema_version: int = 3
 
     def __post_init__(self) -> None:
         if self.session_date_utc.tzinfo is None:

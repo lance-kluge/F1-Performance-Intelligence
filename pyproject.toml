@@ -16,6 +16,7 @@ dependencies = [
   "pandera[pandas]>=0.32,<0.33",
   "pyarrow>=18,<24",
   "plotly>=6.9,<7",
+  "statsmodels>=0.14.6,<0.15",
   "streamlit>=1.60,<2",
 ]
 
@@ -51,7 +52,7 @@ mypy_path = "src"
 plugins = ["pandera.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["fastf1.*", "plotly.*"]
+module = ["fastf1.*", "plotly.*", "statsmodels.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]

@@ -47,3 +47,15 @@ class LapNotFoundError(LapAnalysisError):
 
 class TelemetryNotAvailableError(LapAnalysisError):
     """A selected lap does not have enough telemetry for comparison."""
+
+
+class TireModelError(F1PIError):
+    """Tire degradation cannot be modeled from the requested session."""
+
+
+class UnsupportedTireSessionError(TireModelError):
+    """The session type does not support stint-based tire modeling."""
+
+
+class InsufficientTireDataError(TireModelError):
+    """No compound has enough clean, identifiable data for a tire model."""

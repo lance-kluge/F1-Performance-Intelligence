@@ -4,9 +4,11 @@ from f1pi.analysis.lap_analysis import LapComparisonEngine
 from f1pi.analysis.models import (
     AnalysisQuality,
     ComparisonSummary,
+    CompoundDegradationEstimate,
     Confidence,
     CornerComparison,
     CornerPhaseKind,
+    DegradationMode,
     DriverCornerMetrics,
     DriverStraightMetrics,
     FindingEvidence,
@@ -24,17 +26,25 @@ from f1pi.analysis.models import (
     StraightComparison,
     SummaryFinding,
     SynchronizationConfig,
+    TireDegradationAnalysis,
+    TireModelConfig,
+    TireModelMetrics,
+    TireModelValidation,
+    TireStintSummary,
     TurnComparison,
     TurnReference,
 )
 from f1pi.analysis.performance_summary import SummaryNarrativeProvider
+from f1pi.analysis.tire_model import TireDegradationEngine
 
 __all__ = [
     "AnalysisQuality",
     "ComparisonSummary",
+    "CompoundDegradationEstimate",
     "Confidence",
     "CornerComparison",
     "CornerPhaseKind",
+    "DegradationMode",
     "DriverCornerMetrics",
     "DriverStraightMetrics",
     "FindingEvidence",
@@ -54,6 +64,12 @@ __all__ = [
     "SummaryFinding",
     "SummaryNarrativeProvider",
     "SynchronizationConfig",
+    "TireDegradationAnalysis",
+    "TireDegradationEngine",
+    "TireModelConfig",
+    "TireModelMetrics",
+    "TireModelValidation",
+    "TireStintSummary",
     "TurnComparison",
     "TurnReference",
 ]

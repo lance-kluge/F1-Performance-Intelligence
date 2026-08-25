@@ -49,6 +49,7 @@ def test_parquet_catalog_repository_round_trip(
     assert session.results().iloc[0]["abbreviation"] == "LEC"
     assert len(session.laps()) == 2
     assert len(session.weather()) == 2
+    assert len(session.track_status()) == 1
     assert len(session.car_telemetry("lec")) == 2
     assert len(session.car_telemetry()) == 2
     assert len(session.position("LEC")) == 2

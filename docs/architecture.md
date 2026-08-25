@@ -13,7 +13,8 @@ Caller
   ├── Streamlit UI ───── SessionDiscoveryService ───── event schedule
   │       │
   │       ├───────────── IngestionService ──────────── local snapshot
-  │       └───────────── LapAnalysisService ────────── chart-ready comparison
+  │       ├───────────── LapAnalysisService ────────── chart-ready comparison
+  │       └───────────── TireModelService ──────────── degradation curves + uncertainty
   │
   ├── FastF1Client.load ─────────────────────────── native FastF1 Session
   │
@@ -24,10 +25,11 @@ Caller
   │
   └── SessionRepository ──────────────────────────── typed DataFrames
             │
-            └── LapAnalysisService ── LapComparisonEngine ── synchronized trace
+            ├── LapAnalysisService ── LapComparisonEngine ── synchronized trace
                                               │
                                               ├── performance segmentation + attribution
                                               └── structured summary + compatibility projections
+            └── TireModelService ───── TireDegradationEngine ── curves + validation
 ```
 
 Native FastF1 `Session`, `Laps`, `Lap`, and `Telemetry` objects are intentionally available
@@ -57,6 +59,11 @@ persist derived sections or increment the storage schema: existing normalized sp
 brake, gear, and position channels are sufficient. Immutable section, metric, finding, and quality
 records form the frontend handoff, while the earlier corner, straight, and explanation records are
 derived compatibility views.
+
+The tire model follows the same boundary: an application service opens one immutable Race or
+Sprint snapshot, and a presentation-neutral engine reads only laps, weather, and track status.
+Stint extraction, feature preparation, regression, and whole-stint validation are independent
+modules. Fitted models and derived feature frames are intentionally not persisted.
 
 ## Session discovery
 
@@ -106,8 +113,8 @@ interpolated values; lap alignment and derived distance therefore belong to the 
 
 ## Future milestones
 
-Tire degradation, strategy simulation, and future analytical services can follow the lap
-analyzer's split: an application service resolves a snapshot, a presentation-neutral engine owns
-the calculation, and immutable result records define the handoff to interfaces. They should obtain
-native sessions through `FastF1Client`, not configure FastF1 caches independently or infer schemas
-from raw cache files.
+Strategy simulation and future analytical services can follow the existing analyzers' split: an
+application service resolves a snapshot, a presentation-neutral engine owns the calculation, and
+immutable result records define the handoff to interfaces. They should obtain native sessions
+through `FastF1Client`, not configure FastF1 caches independently or infer schemas from raw cache
+files.

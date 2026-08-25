@@ -1,4 +1,4 @@
-# Schema reference — version 2
+# Schema reference — version 3
 
 All tables use stable `snake_case` names and contain `session_id`. Pandera permits additional
 upstream columns after their names and physical types are normalized, while enforcing the
@@ -22,8 +22,8 @@ columns required by downstream contracts.
 
 - `session`: canonical event/session metadata, FastF1 version, and schema version.
 - `results`: driver identity, constructor, finishing position, and status.
-- `laps`: driver/lap identity, lap and sector times, lap start time, stint, compound, tire life,
-  freshness, and accuracy.
+- `laps`: driver/lap identity, lap and sector times, lap and pit boundaries, stint, compound, tire
+  life, freshness, deletion state, and accuracy.
 - `weather`: session time and ambient measurements.
 - `car_telemetry`: driver-partitioned speed, RPM, gear, throttle, brake, and DRS samples.
 - `position`: driver-partitioned track coordinates and sample status.
@@ -34,6 +34,9 @@ columns required by downstream contracts.
 
 Adding or changing required semantics increments `schema_version`; readers never silently treat a
 snapshot from another version as current.
+
+Version 3 makes `pit_in_time_ns`, `pit_out_time_ns`, and `deleted` part of the stable lap contract
+so analytical services can reject in-laps, out-laps, and deleted timing rows deterministically.
 
 Snapshots written with an earlier schema are not opened by the repository. Calling ingestion for
 the same session rebuilds the snapshot with the current schema while preserving the previous
