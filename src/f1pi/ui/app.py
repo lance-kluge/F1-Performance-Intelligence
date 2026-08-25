@@ -34,7 +34,7 @@ def main() -> None:
     )
 
     def home_page() -> None:
-        render_home(analysis)
+        render_home(analysis, tire_degradation)
 
     home = st.Page(
         home_page,

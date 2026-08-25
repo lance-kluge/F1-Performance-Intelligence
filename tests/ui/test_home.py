@@ -45,12 +45,14 @@ def test_landing_page_renders_without_platform_or_fastf1() -> None:
     assert result["page_links"] == [
         "Open lap analysis",
         "Open lap analysis",
+        "Open tire degradation",
     ]
     rendered_markup = result["markup"]
     assert "See where the lap was won." in rendered_markup
     assert "illustrative data" in rendered_markup
     assert "Method over mythology" in rendered_markup
-    assert "turn its fastest laps into track-level evidence" in rendered_markup
+    assert "How did each compound evolve?" in rendered_markup
+    assert "Read the lap. Understand the stint." in rendered_markup
     assert "arrives in the next release" not in rendered_markup
 
 

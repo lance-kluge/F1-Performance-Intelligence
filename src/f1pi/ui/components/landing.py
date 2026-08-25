@@ -93,6 +93,47 @@ def render_benefits() -> None:
     )
 
 
+def render_analysis_choice_intro() -> None:
+    st.html(
+        """
+        <section class="f1pi-analysis-choice-intro" aria-labelledby="analysis-choice-title">
+          <p class="f1pi-eyebrow"><span></span> Analysis workspaces</p>
+          <h2 id="analysis-choice-title">Start with the performance question.</h2>
+          <p>Compare two laps at the same points on track, or model how lap time changes as each
+          compound ages through a race stint.</p>
+        </section>
+        """
+    )
+
+
+def render_lap_analysis_choice() -> None:
+    st.html(
+        """
+        <article class="f1pi-analysis-choice">
+          <span>01 · Lap analysis</span>
+          <h3>Where did the lap time move?</h3>
+          <p>Align two accurate laps by distance, trace the delta, and inspect speed, inputs,
+          sectors, and corners.</p>
+          <small>Best for qualifying and driver-to-driver comparisons</small>
+        </article>
+        """
+    )
+
+
+def render_tire_degradation_choice() -> None:
+    st.html(
+        """
+        <article class="f1pi-analysis-choice f1pi-analysis-choice--tire">
+          <span>02 · Tire degradation</span>
+          <h3>How did each compound evolve?</h3>
+          <p>Reconstruct clean race stints, estimate compound-specific lap-time trends, and audit
+          uncertainty, validation, and every included lap.</p>
+          <small>Best for completed Races and Sprints</small>
+        </article>
+        """
+    )
+
+
 def render_workflow() -> None:
     st.html(
         """
@@ -145,9 +186,10 @@ def render_final_callout() -> None:
     st.html(
         """
         <section class="f1pi-final-callout" aria-labelledby="final-title">
-          <p class="f1pi-label">Interactive lap analysis</p>
-          <h2 id="final-title">Every tenth has a location.</h2>
-          <p>Choose a completed session and turn its fastest laps into track-level evidence.</p>
+          <p class="f1pi-label">Performance intelligence</p>
+          <h2 id="final-title">Read the lap. Understand the stint.</h2>
+          <p>Use measured telemetry and explicit model boundaries to answer the question at
+          hand.</p>
         </section>
         """
     )
