@@ -26,6 +26,10 @@ from f1pi.ui.runtime import get_tire_analysis_facade
 
 MIN_TIRE_MODEL_YEAR = 2018
 TIRE_ANALYSIS_KEY = "f1pi_tire_analysis"
+ANALYSIS_PROGRESS_DETAIL = (
+    "Loading the session snapshot, reconstructing clean stints, fitting compound trends, and "
+    "validating the model. First-time sessions may take a few minutes."
+)
 logger = logging.getLogger(__name__)
 
 
@@ -135,11 +139,9 @@ def _run_or_restore_analysis(
     stored = _analysis_from_state(st.session_state.get(TIRE_ANALYSIS_KEY), key, mode)
     if st.button("Analyze tire degradation", type="primary", width="stretch"):
         try:
-            with st.status("Preparing tire model…", expanded=True) as status:
-                st.write("Checking the local immutable snapshot")
+            with st.status("Loading, fitting, and validating tire model…", expanded=True) as status:
+                st.write(ANALYSIS_PROGRESS_DETAIL)
                 run = facade.analyze(key, mode)
-                st.write("Filtering clean laps and reconstructing stable stints")
-                st.write("Fitting compound trends and validating whole stints")
                 status.update(label="Tire analysis ready", state="complete", expanded=False)
             st.session_state[TIRE_ANALYSIS_KEY] = _analysis_state(key, run)
         except Exception as error:

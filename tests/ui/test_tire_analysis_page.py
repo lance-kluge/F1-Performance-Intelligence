@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import nullcontext
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -129,3 +130,38 @@ def test_nonstandard_compound_card_uses_chart_fallback_color() -> None:
     card = _estimate_card(estimate)
 
     assert "--compound-color: #ff9e64" in card
+
+
+def test_analysis_uses_one_honest_message_while_model_is_running(
+    tire_analysis_run, monkeypatch
+) -> None:
+    events: list[object] = []
+    status = Mock()
+    facade = Mock()
+    facade.analyze.side_effect = lambda *_: events.append("analyze") or tire_analysis_run
+    monkeypatch.setattr(tire_degradation.st, "session_state", {})
+    monkeypatch.setattr(tire_degradation.st, "button", lambda *_, **__: True)
+    monkeypatch.setattr(
+        tire_degradation.st,
+        "status",
+        lambda *_, **__: nullcontext(status),
+    )
+    monkeypatch.setattr(
+        tire_degradation.st,
+        "write",
+        lambda message: events.append(message),
+    )
+    monkeypatch.setattr(tire_degradation.st, "rerun", Mock())
+
+    tire_degradation._run_or_restore_analysis(
+        facade,
+        SessionKey(2026, 1, "R"),
+        DegradationMode.ADJUSTED,
+    )
+
+    assert events == [tire_degradation.ANALYSIS_PROGRESS_DETAIL, "analyze"]
+    status.update.assert_called_once_with(
+        label="Tire analysis ready",
+        state="complete",
+        expanded=False,
+    )
