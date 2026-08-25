@@ -9,9 +9,14 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from f1pi.analysis.models import DegradationMode, TireDegradationAnalysis, TireModelMetrics
+from f1pi.analysis.models import (
+    DegradationMode,
+    DriverTireDegradationAnalysis,
+    TireDegradationAnalysis,
+    TireModelMetrics,
+)
 from f1pi.ui.components.results.chrome import render_result_section
-from f1pi.ui.models import TireAnalysisRun
+from f1pi.ui.models import DriverTireAnalysisRun, TireAnalysisRun
 from f1pi.ui.tire_charts import (
     compound_color,
     degradation_curve_figure,
@@ -25,7 +30,7 @@ from f1pi.ui.tire_formatting import (
     warning_message,
 )
 
-PLOT_CONFIG = {
+PLOT_CONFIG: dict[str, Any] = {
     "displayModeBar": False,
     "displaylogo": False,
     "responsive": True,
@@ -61,6 +66,214 @@ def render_tire_results(run: TireAnalysisRun) -> None:
         _render_quality(analysis)
     with audit:
         _render_audit(analysis)
+
+
+def render_driver_tire_results(
+    runs: tuple[DriverTireAnalysisRun, DriverTireAnalysisRun],
+) -> None:
+    """Render two driver-scoped models in aligned, stint-led result panels."""
+    analyses = (runs[0].analysis, runs[1].analysis)
+    _render_driver_summary(analyses)
+    _render_driver_warnings(analyses)
+    st.html(
+        """
+        <div class="f1pi-results-guide">
+          <span>Compare the drivers</span>
+          <p>Read the degradation rates side by side, then compare each driver's modeled stint
+          shape and the clean laps supporting it.</p>
+        </div>
+        """
+    )
+    degradation, quality, audit = st.tabs(
+        [
+            ":material/compare_arrows: Stint comparison",
+            ":material/verified: Model quality",
+            ":material/fact_check: Data audit",
+        ]
+    )
+    with degradation:
+        _render_driver_degradation(analyses)
+    with quality:
+        _render_driver_quality(analyses)
+    with audit:
+        _render_driver_audit(analyses)
+
+
+def _render_driver_summary(
+    analyses: tuple[DriverTireDegradationAnalysis, DriverTireDegradationAnalysis],
+) -> None:
+    first, second = analyses
+    mode_label = "Condition-adjusted" if first.mode is DegradationMode.ADJUSTED else "Raw trend"
+    modeled_count = sum(
+        int(analysis.observations["fitted_lap_time_seconds"].notna().sum())
+        for analysis in analyses
+    )
+    st.html(
+        f"""
+        <section class="f1pi-tire-result-hero" aria-labelledby="driver-tire-result-title">
+          <div class="f1pi-result-hero__event">
+            <span>{first.metadata.year} · {escape(first.metadata.session_name)} · Driver view</span>
+            <h1 id="driver-tire-result-title">{escape(first.driver)}
+              <em>vs</em> {escape(second.driver)}</h1>
+            <p>{escape(first.metadata.event_name)} · {escape(first.metadata.location)}</p>
+          </div>
+          <div class="f1pi-tire-stat-grid">
+            <article><span>Model</span><strong>{escape(mode_label)}</strong>
+              <small>fit independently per driver</small></article>
+            <article><span>Modeled laps</span><strong>{modeled_count}</strong>
+              <small>across both drivers</small></article>
+            <article><span>{escape(first.driver)} stints</span><strong>{len(first.stints)}</strong>
+              <small>{len(first.estimates)} supported
+                {_plural("compound", len(first.estimates))}</small></article>
+            <article><span>{escape(second.driver)} stints</span>
+              <strong>{len(second.stints)}</strong>
+              <small>{len(second.estimates)} supported
+                {_plural("compound", len(second.estimates))}</small></article>
+          </div>
+        </section>
+        """
+    )
+
+
+def _render_driver_warnings(
+    analyses: tuple[DriverTireDegradationAnalysis, DriverTireDegradationAnalysis],
+) -> None:
+    messages = [
+        f"- **{analysis.driver}:** {warning_message(warning)}"
+        for analysis in analyses
+        for warning in analysis.warnings
+    ]
+    if messages:
+        st.warning("Driver model notes\n\n" + "\n".join(messages), icon=":material/info:")
+
+
+def _render_driver_degradation(
+    analyses: tuple[DriverTireDegradationAnalysis, DriverTireDegradationAnalysis],
+) -> None:
+    render_result_section(
+        1,
+        "Driver degradation rates",
+        "Each model uses only that driver's laps; intervals and support are shown independently.",
+    )
+    columns = st.columns(2, gap="large")
+    for column, analysis in zip(columns, analyses, strict=True):
+        with column:
+            _render_driver_heading(analysis)
+            st.html(
+                '<div class="f1pi-compound-grid f1pi-driver-compound-grid">'
+                + "".join(_estimate_card(estimate) for estimate in analysis.estimates)
+                + "</div>"
+            )
+            st.plotly_chart(
+                degradation_rate_figure(analysis),
+                config=PLOT_CONFIG,
+                width="stretch",
+                key=f"driver_tire_rates_{analysis.driver}",
+            )
+    render_result_section(
+        2,
+        "Modeled stint shapes",
+        "Raw clean laps and reference-condition trends stay separated by driver for comparison.",
+    )
+    columns = st.columns(2, gap="large")
+    for column, analysis in zip(columns, analyses, strict=True):
+        with column:
+            _render_driver_heading(analysis)
+            st.plotly_chart(
+                degradation_curve_figure(analysis),
+                config=PLOT_CONFIG,
+                width="stretch",
+                key=f"driver_tire_curves_{analysis.driver}",
+            )
+            st.dataframe(
+                _stint_frame(analysis),
+                hide_index=True,
+                width="stretch",
+                column_config={
+                    "Clean laps": st.column_config.NumberColumn(format="%d"),
+                    "Excluded laps": st.column_config.NumberColumn(format="%d"),
+                },
+            )
+    st.caption(
+        "Dots are each driver's raw clean laps. Lines are modeled at that driver's reference "
+        "conditions; compare degradation slopes rather than absolute line height."
+    )
+
+
+def _render_driver_quality(
+    analyses: tuple[DriverTireDegradationAnalysis, DriverTireDegradationAnalysis],
+) -> None:
+    render_result_section(
+        1,
+        "Independent model checks",
+        "Validation holds out whole stints and is shown only when a driver has enough repeats.",
+    )
+    columns = st.columns(2, gap="large")
+    for column, analysis in zip(columns, analyses, strict=True):
+        with column:
+            _render_driver_heading(analysis)
+            if analysis.validation is None:
+                st.info(
+                    "Out-of-sample validation is unavailable because this driver does not have "
+                    "enough independent stints. The displayed trend remains descriptive.",
+                    icon=":material/info:",
+                )
+                continue
+            metrics = analysis.validation.overall
+            st.html(_metric_cards(metrics, analysis.validation.fold_count))
+            st.plotly_chart(
+                validation_figure(analysis),
+                config=PLOT_CONFIG,
+                width="stretch",
+                key=f"driver_tire_validation_{analysis.driver}",
+            )
+            validation_message, validation_icon = _validation_summary(metrics)
+            st.info(validation_message, icon=validation_icon)
+
+
+def _render_driver_audit(
+    analyses: tuple[DriverTireDegradationAnalysis, DriverTireDegradationAnalysis],
+) -> None:
+    render_result_section(
+        1,
+        "Driver lap eligibility",
+        "Review the clean-lap decisions and modeled values for each driver independently.",
+    )
+    columns = st.columns(2, gap="large")
+    for column, analysis in zip(columns, analyses, strict=True):
+        with column:
+            _render_driver_heading(analysis)
+            st.dataframe(
+                _eligibility_summary(analysis.observations),
+                hide_index=True,
+                width="stretch",
+                column_config={
+                    "Decision": st.column_config.TextColumn("Decision"),
+                    "Laps": st.column_config.NumberColumn("Laps", format="%d"),
+                    "Share": st.column_config.ProgressColumn(
+                        "Share", min_value=0.0, max_value=1.0
+                    ),
+                },
+            )
+            with st.expander(f"Inspect {analysis.driver} lap-level data"):
+                st.dataframe(
+                    _observation_frame(analysis.observations),
+                    hide_index=True,
+                    width="stretch",
+                )
+
+
+def _render_driver_heading(analysis: DriverTireDegradationAnalysis) -> None:
+    clean_laps = int(analysis.observations["fitted_lap_time_seconds"].notna().sum())
+    st.html(
+        f"""
+        <div class="f1pi-driver-panel-heading">
+          <span>Driver model</span><strong>{escape(analysis.driver)}</strong>
+          <small>{len(analysis.stints)} {_plural("stint", len(analysis.stints))} ·
+            {clean_laps} modeled laps</small>
+        </div>
+        """
+    )
 
 
 def _render_summary(analysis: TireDegradationAnalysis) -> None:
@@ -148,7 +361,7 @@ def _estimate_card(estimate: Any) -> str:
         <strong>{format_degradation_rate(estimate.seconds_per_lap)}</strong>
         <p>{escape(estimate_signal(estimate))}</p>
         <small>95% interval {escape(interval)} · {estimate.observation_count} laps ·
-          {estimate.stint_count} stints · age
+          {estimate.stint_count} {_plural("stint", estimate.stint_count)} · age
           {estimate.minimum_tire_age:g}&ndash;{estimate.maximum_tire_age:g}</small>
       </article>
     """
@@ -295,7 +508,9 @@ def _decision_label(reason: str) -> str:
     return exclusion_label(reason)
 
 
-def _stint_frame(analysis: TireDegradationAnalysis) -> pd.DataFrame:
+def _stint_frame(
+    analysis: TireDegradationAnalysis | DriverTireDegradationAnalysis,
+) -> pd.DataFrame:
     rows = []
     for stint in analysis.stints:
         row = asdict(stint)
@@ -354,3 +569,7 @@ def _fresh_tire_label(value: bool | None) -> str:
     if value is False:
         return "Used"
     return "Unknown"
+
+
+def _plural(noun: str, count: int) -> str:
+    return noun if count == 1 else f"{noun}s"

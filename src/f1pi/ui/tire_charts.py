@@ -5,7 +5,9 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 
-from f1pi.analysis.models import TireDegradationAnalysis
+from f1pi.analysis.models import DriverTireDegradationAnalysis, TireDegradationAnalysis
+
+TireAnalysis = TireDegradationAnalysis | DriverTireDegradationAnalysis
 
 PANEL_COLOR = "#141417"
 TEXT_COLOR = "#f5f3ed"
@@ -22,7 +24,7 @@ COMPOUND_COLORS = {
 FALLBACK_COLORS = ("#b47cff", "#ff9e64", "#56c7d9", "#d789b9")
 
 
-def degradation_rate_figure(analysis: TireDegradationAnalysis) -> go.Figure:
+def degradation_rate_figure(analysis: TireAnalysis) -> go.Figure:
     """Show compound slopes and their coefficient confidence intervals."""
     estimates = analysis.estimates
     figure = go.Figure(
@@ -78,7 +80,7 @@ def degradation_rate_figure(analysis: TireDegradationAnalysis) -> go.Figure:
     )
 
 
-def degradation_curve_figure(analysis: TireDegradationAnalysis) -> go.Figure:
+def degradation_curve_figure(analysis: TireAnalysis) -> go.Figure:
     """Overlay eligible laps, adjusted curves, and both uncertainty bands."""
     figure = go.Figure()
     eligible = analysis.observations.loc[analysis.observations["eligible"]]
@@ -149,8 +151,10 @@ def degradation_curve_figure(analysis: TireDegradationAnalysis) -> go.Figure:
     )
 
 
-def validation_figure(analysis: TireDegradationAnalysis) -> go.Figure:
+def validation_figure(analysis: TireAnalysis) -> go.Figure:
     """Compare out-of-fold model MAE with the simple compound-mean baseline."""
+    if analysis.validation is None:
+        raise ValueError("validation figure requires validation metrics")
     metrics = (analysis.validation.overall, *analysis.validation.per_compound)
     labels = ["Overall" if item.scope == "overall" else item.scope.title() for item in metrics]
     figure = go.Figure()

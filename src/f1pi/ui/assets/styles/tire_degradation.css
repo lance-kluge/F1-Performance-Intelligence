@@ -129,6 +129,48 @@
   line-height: 1.65;
 }
 
+.f1pi-driver-panel-heading {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: .2rem 1rem;
+  margin: .25rem 0 1rem;
+  padding: .85rem 1rem;
+  border-left: 3px solid var(--f1pi-accent);
+  background: rgba(255, 79, 71, .055);
+}
+
+.f1pi-driver-panel-heading span {
+  color: var(--f1pi-muted);
+  font-size: .6rem;
+  font-weight: 720;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.f1pi-driver-panel-heading strong {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.f1pi-driver-panel-heading small {
+  color: var(--f1pi-muted);
+  font-size: .7rem;
+}
+
+.f1pi-driver-compound-grid { grid-template-columns: 1fr; }
+.f1pi-driver-compound-grid .f1pi-compound-card { min-height: 11.5rem; }
+.f1pi-tire-result-hero h1 em {
+  color: var(--f1pi-muted);
+  font-size: .45em;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
 @media (max-width: 900px) {
   .f1pi-tire-stat-grid, .f1pi-quality-grid { grid-template-columns: 1fr 1fr; }
 }

@@ -148,3 +148,49 @@ def test_tire_facade_ingests_mode_specific_snapshot(
     assert options.messages is False
     config = platform.tire_model.analyze.call_args.args[1]
     assert config.mode is mode
+
+
+def test_tire_facade_lists_drivers_from_lightweight_snapshot() -> None:
+    results, laps = _session_frames()
+    platform = Mock()
+    platform.ingestion.ingest.return_value = IngestionResult("session", "run", True, ())
+    stored = Mock()
+    stored.results.return_value = results
+    stored.laps.return_value = laps
+    platform.sessions.open.return_value = stored
+    key = SessionKey(2026, 1, "R")
+
+    drivers = TireAnalysisFacade(platform).list_drivers(key)
+
+    assert [driver.abbreviation for driver in drivers] == ["NOR", "VER"]
+    options = platform.ingestion.ingest.call_args.args[1]
+    assert options.telemetry is False
+    assert options.weather is False
+    assert options.messages is False
+
+
+def test_tire_facade_runs_two_driver_models_from_one_snapshot() -> None:
+    platform = Mock()
+    platform.ingestion.ingest.return_value = IngestionResult("session", "run", False, ())
+    first_analysis = object()
+    second_analysis = object()
+    platform.tire_model.analyze_driver.side_effect = (first_analysis, second_analysis)
+    key = SessionKey(2026, 1, "R")
+
+    runs = TireAnalysisFacade(platform).analyze_drivers(
+        key,
+        ("NOR", "VER"),
+        DegradationMode.ADJUSTED,
+    )
+
+    assert [run.analysis for run in runs] == [first_analysis, second_analysis]
+    assert not any(run.snapshot_reused for run in runs)
+    platform.ingestion.ingest.assert_called_once()
+    assert [call.args[1] for call in platform.tire_model.analyze_driver.call_args_list] == [
+        "NOR",
+        "VER",
+    ]
+    assert all(
+        call.args[2].mode is DegradationMode.ADJUSTED
+        for call in platform.tire_model.analyze_driver.call_args_list
+    )
