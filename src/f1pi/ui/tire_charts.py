@@ -31,7 +31,7 @@ def degradation_rate_figure(analysis: TireDegradationAnalysis) -> go.Figure:
             y=[estimate.compound.title() for estimate in estimates],
             mode="markers",
             marker={
-                "color": [_compound_color(estimate.compound) for estimate in estimates],
+                "color": [compound_color(estimate.compound) for estimate in estimates],
                 "size": 12,
                 "line": {"color": PANEL_COLOR, "width": 1},
             },
@@ -83,7 +83,7 @@ def degradation_curve_figure(analysis: TireDegradationAnalysis) -> go.Figure:
     eligible = analysis.observations.loc[analysis.observations["eligible"]]
     for estimate in analysis.estimates:
         compound = estimate.compound
-        color = _compound_color(compound)
+        color = compound_color(compound)
         curve = analysis.curves.loc[analysis.curves["compound"].eq(compound)].sort_values(
             "tire_age_laps"
         )
@@ -208,7 +208,8 @@ def _add_band(
     )
 
 
-def _compound_color(compound: str) -> str:
+def compound_color(compound: str) -> str:
+    """Return the shared UI color for a standard or session-specific compound."""
     if compound in COMPOUND_COLORS:
         return COMPOUND_COLORS[compound]
     palette_index = sum(ord(character) for character in compound) % len(FALLBACK_COLORS)

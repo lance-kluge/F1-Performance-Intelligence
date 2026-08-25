@@ -6,10 +6,11 @@ from unittest.mock import Mock
 
 from streamlit.testing.v1 import AppTest
 
-from f1pi.analysis.models import DegradationMode
+from f1pi.analysis.models import CompoundDegradationEstimate, DegradationMode
 from f1pi.domain.models import SessionKey
 from f1pi.ui.components.tire_degradation.results import (
     _eligibility_summary,
+    _estimate_card,
     _observation_frame,
 )
 from f1pi.ui.pages import tire_degradation
@@ -120,3 +121,11 @@ def test_audit_distinguishes_clean_unsupported_compound_laps(tire_analysis_run) 
     unsupported_lap = _observation_frame(observations).iloc[0]
     assert not bool(unsupported_lap["Included"])
     assert unsupported_lap["Decision"] == "Compound below support threshold"
+
+
+def test_nonstandard_compound_card_uses_chart_fallback_color() -> None:
+    estimate = CompoundDegradationEstimate("C6", 0.1, 0.04, 0.16, 4, 2, 1, 4)
+
+    card = _estimate_card(estimate)
+
+    assert "--compound-color: #ff9e64" in card

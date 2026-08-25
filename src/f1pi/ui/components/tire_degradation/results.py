@@ -13,6 +13,7 @@ from f1pi.analysis.models import DegradationMode, TireDegradationAnalysis, TireM
 from f1pi.ui.components.results.chrome import render_result_section
 from f1pi.ui.models import TireAnalysisRun
 from f1pi.ui.tire_charts import (
+    compound_color,
     degradation_curve_figure,
     degradation_rate_figure,
     validation_figure,
@@ -140,7 +141,8 @@ def _estimate_card(estimate: Any) -> str:
         f"{estimate.confidence_upper_seconds_per_lap:+.3f} s/lap"
     )
     return f"""
-      <article class="f1pi-compound-card f1pi-compound-card--{compound_class}">
+      <article class="f1pi-compound-card f1pi-compound-card--{compound_class}"
+        style="--compound-color: {compound_color(estimate.compound)}">
         <span>{escape(estimate.compound.title())}</span>
         <strong>{format_degradation_rate(estimate.seconds_per_lap)}</strong>
         <p>{escape(estimate_signal(estimate))}</p>
