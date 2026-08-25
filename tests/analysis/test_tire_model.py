@@ -433,7 +433,7 @@ def test_non_green_session_has_no_modeling_laps() -> None:
     [
         {"confidence_level": 1.0},
         {"minimum_stint_laps": 1},
-        {"minimum_compound_stints": 0},
+        {"minimum_compound_stints": 1},
         {"minimum_compound_laps": 2},
         {"quick_lap_ratio": 0.9},
         {"maximum_validation_folds": 1},
