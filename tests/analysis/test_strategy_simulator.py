@@ -273,6 +273,23 @@ def test_actual_scenario_is_derived_from_track_status_timeline() -> None:
     request = _strategy_request()
     config = StrategySimulationConfig(iterations=3)
     prepared = prepare_race(session, request, config)
+    session._laps["deleted"] = session._laps["deleted"].astype("boolean")
+    vsc_laps = prepared.laps.loc[
+        prepared.observations["condition"].eq(NeutralizationKind.VIRTUAL_SAFETY_CAR.value),
+        ["driver", "lap_number"],
+    ]
+    for driver, lap_number in vsc_laps.itertuples(index=False):
+        session._laps.loc[
+            session._laps["driver"].eq(driver)
+            & session._laps["lap_number"].eq(lap_number),
+            "is_accurate",
+        ] = False
+        session._laps.loc[
+            session._laps["driver"].eq(driver)
+            & session._laps["lap_number"].eq(lap_number),
+            "deleted",
+        ] = pd.NA
+    prepared = prepare_race(session, request, config)
     actual_events = scenario_events(request.scenarios[0], prepared, request.decision_lap)
     neutralization_rows = _neutralization_pace_rows(
         prepared.observations, NeutralizationKind.VIRTUAL_SAFETY_CAR
@@ -283,6 +300,28 @@ def test_actual_scenario_is_derived_from_track_status_timeline() -> None:
     assert any(event.kind is NeutralizationKind.VIRTUAL_SAFETY_CAR for event in actual_events)
     assert neutralization_rows["pit_in_time_ns"].isna().all()
     assert neutralization_rows["pit_out_time_ns"].isna().all()
+    assert neutralization_rows["is_accurate"].eq(False).all()
+
+
+def test_retired_driver_uses_last_complete_lap_for_initial_state() -> None:
+    session = StubStrategySession()
+    session._results.loc[session._results["abbreviation"].eq("DDD"), "status"] = "Retired"
+    session._laps = session._laps.loc[
+        ~(
+            session._laps["driver"].eq("DDD")
+            & session._laps["lap_number"].gt(5)
+        )
+    ].copy()
+    session._laps.loc[
+        session._laps["driver"].eq("DDD") & session._laps["lap_number"].eq(5),
+        "lap_time_ns",
+    ] = pd.NA
+
+    prepared = prepare_race(session, _strategy_request(), StrategySimulationConfig(iterations=1))
+
+    state = next(state for state in prepared.initial_states if state.driver == "DDD")
+    assert state.completed_laps == 4
+    assert state.maximum_laps == 5
 
 
 def test_no_stop_sprint_can_run_without_pit_loss_samples() -> None:
