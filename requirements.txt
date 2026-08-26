@@ -1,4 +1,6 @@
 # Generated from pyproject.toml runtime dependencies. Do not edit independently.
+# Install this src-layout project so Streamlit can import the f1pi package.
+-e .
 fastf1==3.8.3
 numpy>=1.26,<2.5
 pandas>=2.2,<3
