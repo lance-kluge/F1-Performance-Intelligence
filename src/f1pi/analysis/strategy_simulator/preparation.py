@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 import numpy as np
@@ -228,7 +229,7 @@ def _validate_target(results: pd.DataFrame, laps: pd.DataFrame, driver: str) -> 
     if result.empty or result["position"].isna().all():
         raise InvalidStrategyError("target driver must have a classified result")
     status = str(result.iloc[0].get("status", ""))
-    if not ("Finished" in status or "Lapped" in status):
+    if not _is_classified_finisher(status):
         raise InvalidStrategyError("target driver must be a classified finisher")
 
 
@@ -277,7 +278,7 @@ def _initial_states(
             raise InsufficientStrategyDataError(f"initial state is incomplete for {driver}")
         result = results.loc[results["abbreviation"].astype(str).str.upper().eq(driver)]
         status = "" if result.empty else str(result.iloc[0].get("status", ""))
-        classified_finisher = "Finished" in status or "Lapped" in status
+        classified_finisher = _is_classified_finisher(status)
         states.append(
             InitialCarState(
                 driver=driver,
@@ -293,6 +294,13 @@ def _initial_states(
     if len(states) < 2:
         raise InsufficientStrategyDataError("at least two classified cars are required")
     return tuple(states)
+
+
+def _is_classified_finisher(status: str) -> bool:
+    normalized = status.strip()
+    return normalized in {"Finished", "Lapped"} or bool(
+        re.fullmatch(r"\+\s*\d+\s+Laps?", normalized, flags=re.IGNORECASE)
+    )
 
 
 def _observed_plan(laps: pd.DataFrame, driver: str) -> StrategyPlan:

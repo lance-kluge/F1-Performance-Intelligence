@@ -251,6 +251,17 @@ def test_no_stop_sprint_can_run_without_pit_loss_samples() -> None:
     assert "pit_loss_unavailable:no_stops" in analysis.warnings
 
 
+def test_fastf1_lap_down_status_is_a_classified_finisher() -> None:
+    session = StubStrategySession()
+    session._results.loc[session._results["abbreviation"].eq("AAA"), "status"] = "+ 1 Lap"
+
+    analysis = StrategySimulationEngine().simulate(
+        session, _request(), StrategySimulationConfig(iterations=2)
+    )
+
+    assert analysis.driver == "AAA"
+
+
 def test_rejects_red_flags_non_races_bad_targets_and_invalid_windows() -> None:
     with pytest.raises(UnsupportedStrategySessionError, match="red-flag"):
         StrategySimulationEngine().simulate(
