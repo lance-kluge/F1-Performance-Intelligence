@@ -356,6 +356,10 @@ def test_traffic_penalties_are_bounded_and_safety_car_compresses_field() -> None
         lambda: StrategyPlan("x", (PlannedPitStop(3, "S"), PlannedPitStop(2, "H"))),
         lambda: NeutralizationAssumptions(0.9, 0.5),
         lambda: NeutralizationAssumptions(1.2, 0),
+        lambda: NeutralizationAssumptions(float("nan"), 0.5),
+        lambda: NeutralizationAssumptions(float("inf"), 0.5),
+        lambda: NeutralizationAssumptions(1.2, float("nan")),
+        lambda: NeutralizationAssumptions(1.2, 0.5, float("inf")),
         lambda: NeutralizationEvent(NeutralizationKind.SAFETY_CAR, 3, 2),
     ],
 )

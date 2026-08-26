@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 from itertools import pairwise
+from math import isfinite
 
 import pandas as pd
 
@@ -31,6 +32,15 @@ class NeutralizationAssumptions:
     restart_gap_seconds: float = 1.0
 
     def __post_init__(self) -> None:
+        if not all(
+            isfinite(value)
+            for value in (
+                self.lap_time_multiplier,
+                self.pit_loss_multiplier,
+                self.restart_gap_seconds,
+            )
+        ):
+            raise ValueError("neutralization assumptions must be finite")
         if self.lap_time_multiplier < 1:
             raise ValueError("lap_time_multiplier must be at least 1")
         if not 0 < self.pit_loss_multiplier <= 1:
