@@ -23,7 +23,10 @@ from f1pi.analysis.strategy_simulator.calibration import (
     RegressionPaceModel,
 )
 from f1pi.analysis.strategy_simulator.preparation import prepare_race, scenario_events
-from f1pi.analysis.strategy_simulator.simulation import _compress_field
+from f1pi.analysis.strategy_simulator.simulation import (
+    _compress_field,
+    _positions_and_gaps,
+)
 from f1pi.domain.exceptions import (
     InsufficientStrategyDataError,
     InvalidStrategyError,
@@ -390,6 +393,17 @@ def test_traffic_penalties_are_bounded_and_safety_car_compresses_field() -> None
     completed = np.array([[10, 10, 10]])
     _compress_field(elapsed, completed, np.array([True, True, True]), 1.0)
     assert elapsed.tolist() == [[100.0, 101.0, 102.0]]
+
+
+def test_lap_deficit_has_no_seconds_gap() -> None:
+    positions, gaps = _positions_and_gaps(
+        np.array([[1_000.0, 1_002.0, 900.0]]),
+        np.array([[10, 10, 9]]),
+    )
+
+    assert positions.tolist() == [[1, 2, 3]]
+    assert gaps[0, :2].tolist() == [0.0, 2.0]
+    assert np.isnan(gaps[0, 2])
 
 
 @pytest.mark.parametrize(

@@ -211,9 +211,9 @@ def trace_distribution_frame(
                     "elapsed_lower_seconds": float(np.quantile(elapsed, lower_quantile)),
                     "elapsed_median_seconds": float(np.median(elapsed)),
                     "elapsed_upper_seconds": float(np.quantile(elapsed, upper_quantile)),
-                    "gap_lower_seconds": float(np.quantile(gaps, lower_quantile)),
-                    "gap_median_seconds": float(np.median(gaps)),
-                    "gap_upper_seconds": float(np.quantile(gaps, upper_quantile)),
+                    "gap_lower_seconds": _nan_quantile(gaps, lower_quantile),
+                    "gap_median_seconds": _nan_quantile(gaps, 0.5),
+                    "gap_upper_seconds": _nan_quantile(gaps, upper_quantile),
                 }
             )
     return pd.DataFrame(rows)
@@ -221,6 +221,11 @@ def trace_distribution_frame(
 
 def config_start_lap(prepared: PreparedRace) -> int:
     return max(state.completed_laps for state in prepared.initial_states)
+
+
+def _nan_quantile(values: np.ndarray, quantile: float) -> float:
+    finite_values = values[np.isfinite(values)]
+    return float(np.quantile(finite_values, quantile)) if len(finite_values) else float("nan")
 
 
 def _gaps_by_elapsed(
@@ -248,12 +253,15 @@ def _positions_and_gaps(
     elapsed: np.ndarray, completed: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
     positions = np.empty_like(completed, dtype=np.int16)
-    gaps = np.zeros_like(elapsed, dtype=float)
+    gaps = np.full_like(elapsed, np.nan, dtype=float)
     for iteration in range(elapsed.shape[0]):
         order = np.lexsort((elapsed[iteration], -completed[iteration]))
         positions[iteration, order] = np.arange(1, len(order) + 1, dtype=np.int16)
         leader = order[0]
-        gaps[iteration] = np.maximum(elapsed[iteration] - elapsed[iteration, leader], 0.0)
+        same_lap = completed[iteration] == completed[iteration, leader]
+        gaps[iteration, same_lap] = np.maximum(
+            elapsed[iteration, same_lap] - elapsed[iteration, leader], 0.0
+        )
     return positions, gaps
 
 
