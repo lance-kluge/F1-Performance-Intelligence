@@ -117,6 +117,7 @@ def test_strategy_display_formatting_is_consistent() -> None:
     assert format_probability(1.2) == "100.0%"
     assert format_position(3.749) == "P3.7"
     assert format_gap(-0.1) == "0.000s"
+    assert format_gap(float("nan")) == "Lap down"
     assert "Pit-loss uncertainty" in strategy_warning_message(
         "sparse_green_pit_loss_calibration"
     )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 
 
@@ -15,6 +16,8 @@ def format_strategy_time(seconds: float) -> str:
 
 
 def format_gap(seconds: float) -> str:
+    if not math.isfinite(seconds):
+        return "Lap down"
     return f"{max(_display_zero(seconds, 3), 0.0):.3f}s"
 
 
@@ -49,4 +52,3 @@ def strategy_warning_message(warning: str) -> str:
         feature = warning.split(":")[-1].replace("_", " ")
         return f"{feature.title()} was omitted from calibration because it added no stable signal."
     return re.sub(r"[_:]", " ", warning).strip().capitalize() + "."
-
