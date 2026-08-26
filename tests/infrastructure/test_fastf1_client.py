@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 from fastf1.core import Laps
+from fastf1.exceptions import DataNotLoadedError
 
 from f1pi.domain.exceptions import (
     InvalidSessionError,
@@ -32,7 +33,8 @@ class FakeFastF1Session:
         self.results = pd.DataFrame(
             {"DriverNumber": ["16"], "Abbreviation": ["LEC"]}
         )
-        self.laps = pd.DataFrame()
+        self._laps = pd.DataFrame()
+        self.laps_loaded = True
         self.track_status = pd.DataFrame()
         self.session_status = pd.DataFrame()
         self.weather_data = pd.DataFrame()
@@ -44,6 +46,12 @@ class FakeFastF1Session:
 
     def load(self, **options: bool) -> None:
         self.load_options = options
+
+    @property
+    def laps(self) -> pd.DataFrame:
+        if not self.laps_loaded:
+            raise DataNotLoadedError("laps were not loaded")
+        return self._laps
 
     def get_circuit_info(self) -> SimpleNamespace:
         return SimpleNamespace(
@@ -107,6 +115,20 @@ def test_client_can_force_fastf1_cache_renewal(
     )
 
     assert cache_options["force_renew"] is True
+
+
+def test_client_maps_unloaded_laps_to_upstream_unavailable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = FakeFastF1Session()
+    session.laps_loaded = False
+    monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
+    monkeypatch.setattr(
+        fastf1_client.fastf1.Cache, "enable_cache", lambda path, **options: None
+    )
+
+    with pytest.raises(UpstreamUnavailableError):
+        FastF1Client(tmp_path / "cache").load(SessionKey(2022, "Bahrain", "R"))
 
 
 def test_client_normalizes_supported_event_schedule(monkeypatch: pytest.MonkeyPatch) -> None:
