@@ -21,6 +21,7 @@ from f1pi.analysis.strategy_simulator import calibration as strategy_calibration
 from f1pi.analysis.strategy_simulator.calibration import (
     EmpiricalTrafficModel,
     RegressionPaceModel,
+    _neutralization_pace_rows,
 )
 from f1pi.analysis.strategy_simulator.preparation import prepare_race, scenario_events
 from f1pi.analysis.strategy_simulator.simulation import (
@@ -240,10 +241,15 @@ def test_actual_scenario_is_derived_from_track_status_timeline() -> None:
     config = StrategySimulationConfig(iterations=3)
     prepared = prepare_race(session, request, config)
     actual_events = scenario_events(request.scenarios[0], prepared, request.decision_lap)
+    neutralization_rows = _neutralization_pace_rows(
+        prepared.observations, NeutralizationKind.VIRTUAL_SAFETY_CAR
+    )
     analysis = StrategySimulationEngine().simulate(session, request, config)
 
     assert set(analysis.outcome_samples["scenario"]) == {"actual"}
     assert any(event.kind is NeutralizationKind.VIRTUAL_SAFETY_CAR for event in actual_events)
+    assert neutralization_rows["pit_in_time_ns"].isna().all()
+    assert neutralization_rows["pit_out_time_ns"].isna().all()
 
 
 def test_no_stop_sprint_can_run_without_pit_loss_samples() -> None:

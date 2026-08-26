@@ -423,14 +423,7 @@ def _calibrate_neutralization(
     warnings: list[str] = []
     green_centre = float(np.median(pit_loss.values_by_condition[GREEN]))
     for kind in NeutralizationKind:
-        rows = observations.loc[
-            observations["condition"].eq(kind.value)
-            & observations["lap_time_seconds"].notna()
-            & observations[list(WEATHER_FEATURES)].notna().all(axis=1)
-            & observations["compound"].isin(
-                observations.loc[observations["eligible"], "compound"].unique()
-            )
-        ].copy()
+        rows = _neutralization_pace_rows(observations, kind)
         if rows.empty:
             continue
         try:
@@ -453,3 +446,17 @@ def _calibrate_neutralization(
             restart_gap_seconds=1.0,
         )
     return EmpiricalNeutralizationModel(parameters), tuple(warnings)
+
+
+def _neutralization_pace_rows(
+    observations: pd.DataFrame, kind: NeutralizationKind
+) -> pd.DataFrame:
+    return observations.loc[
+        observations["condition"].eq(kind.value)
+        & observations["lap_time_seconds"].notna()
+        & observations[list(WEATHER_FEATURES)].notna().all(axis=1)
+        & observations["pit_in_time_ns"].isna()
+        & observations["pit_out_time_ns"].isna()
+        & observations["is_accurate"].eq(True).fillna(False)
+        & observations["deleted"].ne(True).fillna(False)
+    ].copy()
