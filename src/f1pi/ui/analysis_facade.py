@@ -11,6 +11,9 @@ from f1pi.analysis.models import (
     DriverTireModelConfig,
     LapComparison,
     LapSelection,
+    StrategySimulationAnalysis,
+    StrategySimulationConfig,
+    StrategySimulationRequest,
     TireModelConfig,
 )
 from f1pi.domain.exceptions import LapNotFoundError
@@ -21,7 +24,14 @@ from f1pi.domain.models import (
     SessionKey,
     SessionType,
 )
-from f1pi.ui.models import DriverOption, DriverTireAnalysisRun, LoadedSession, TireAnalysisRun
+from f1pi.ui.models import (
+    DriverOption,
+    DriverTireAnalysisRun,
+    LoadedSession,
+    StrategySimulationRun,
+    StrategySimulationSetup,
+    TireAnalysisRun,
+)
 
 if TYPE_CHECKING:
     from f1pi.composition import Platform
@@ -53,6 +63,19 @@ class TireDegradationFacade(Protocol):
         drivers: tuple[str, str],
         mode: DegradationMode,
     ) -> tuple[DriverTireAnalysisRun, DriverTireAnalysisRun]: ...
+
+
+class StrategySimulatorFacade(Protocol):
+    def list_available_events(self, year: int) -> tuple[ScheduledEvent, ...]: ...
+
+    def load_setup(self, key: SessionKey) -> StrategySimulationSetup: ...
+
+    def simulate(
+        self,
+        setup: StrategySimulationSetup,
+        request: StrategySimulationRequest,
+        config: StrategySimulationConfig,
+    ) -> StrategySimulationRun: ...
 
 
 class LapAnalysisFacade:
@@ -175,6 +198,114 @@ class TireAnalysisFacade:
                 messages=False,
             ),
         )
+
+
+class StrategyAnalysisFacade:
+    """Adapt the strategy service into discoverable, UI-ready operations."""
+
+    def __init__(self, platform: Platform) -> None:
+        self._platform = platform
+
+    def list_available_events(self, year: int) -> tuple[ScheduledEvent, ...]:
+        events = self._platform.session_discovery.list_available_events(year)
+        supported_types = {SessionType.RACE, SessionType.SPRINT}
+        return tuple(
+            ScheduledEvent(
+                year=event.year,
+                round_number=event.round_number,
+                event_name=event.event_name,
+                country=event.country,
+                location=event.location,
+                sessions=tuple(
+                    session
+                    for session in event.sessions
+                    if session.session_type in supported_types
+                ),
+            )
+            for event in events
+            if any(session.session_type in supported_types for session in event.sessions)
+        )
+
+    def load_setup(self, key: SessionKey) -> StrategySimulationSetup:
+        ingestion = self._platform.ingestion.ingest(
+            key,
+            LoadOptions(telemetry=False, weather=True, messages=False),
+        )
+        session = self._platform.sessions.open(key)
+        laps = session.laps()
+        results = session.results()
+        drivers = _classified_strategy_drivers(results, laps)
+        if not drivers:
+            raise LapNotFoundError("the race has no classified drivers with usable lap data")
+        race_laps = int(pd.to_numeric(laps["lap_number"], errors="coerce").max())
+        compounds = tuple(
+            sorted(
+                compound
+                for compound in {
+                    str(value).strip().upper() for value in laps["compound"].dropna()
+                }
+                if compound and compound != "UNKNOWN"
+            )
+        )
+        if not compounds:
+            raise LapNotFoundError("the race has no identifiable tire compounds")
+        return StrategySimulationSetup(
+            key=key,
+            metadata=session.metadata,
+            drivers=drivers,
+            race_laps=race_laps,
+            compounds=compounds,
+            snapshot_reused=ingestion.snapshot_reused,
+        )
+
+    def simulate(
+        self,
+        setup: StrategySimulationSetup,
+        request: StrategySimulationRequest,
+        config: StrategySimulationConfig,
+    ) -> StrategySimulationRun:
+        analysis: StrategySimulationAnalysis = self._platform.strategy_simulator.simulate(
+            setup.key, request, config
+        )
+        return StrategySimulationRun(analysis, setup.snapshot_reused)
+
+
+def _classified_strategy_drivers(
+    results: pd.DataFrame, laps: pd.DataFrame
+) -> tuple[DriverOption, ...]:
+    """Return classified finishers with every observed, non-pit-in decision lap."""
+    classified = results.loc[
+        results["position"].notna()
+        & results["status"].astype(str).str.match(
+            r"^(Finished|Lapped|\+\s*\d+\s+Laps?)$", case=False
+        )
+    ]
+    eligible_codes = {
+        str(value).strip().upper() for value in classified["abbreviation"].dropna()
+    }
+    choices = []
+    for option in driver_options(results, laps):
+        if option.abbreviation not in eligible_codes:
+            continue
+        driver_laps = laps.loc[
+            laps["driver"].astype(str).str.upper().eq(option.abbreviation)
+            & laps["lap_time_ns"].notna()
+            & laps["lap_start_time_ns"].notna()
+            & laps["pit_in_time_ns"].isna()
+        ]
+        lap_numbers = tuple(
+            sorted({int(number) for number in driver_laps["lap_number"].dropna()})
+        )
+        if lap_numbers:
+            choices.append(
+                DriverOption(
+                    option.abbreviation,
+                    option.full_name,
+                    option.team_name,
+                    lap_numbers,
+                )
+            )
+    return tuple(choices)
 
 
 def driver_options(results: pd.DataFrame, laps: pd.DataFrame) -> tuple[DriverOption, ...]:

@@ -134,6 +134,20 @@ def render_tire_degradation_choice() -> None:
     )
 
 
+def render_strategy_simulator_choice() -> None:
+    st.html(
+        """
+        <article class="f1pi-analysis-choice f1pi-analysis-choice--strategy">
+          <span>03 · Strategy simulator</span>
+          <h3>What if we stopped on another lap?</h3>
+          <p>Set a decision point, compare explicit future pit plans, and inspect outcome ranges
+          under observed or green-race conditions.</p>
+          <small>Best for retrospective Race and Sprint counterfactuals</small>
+        </article>
+        """
+    )
+
+
 def render_workflow() -> None:
     st.html(
         """
