@@ -194,7 +194,7 @@ def _outcome_card(summary: StrategyOutcomeSummary) -> str:
         <strong>{format_position(summary.expected_finish_position)}</strong>
         <p>{escape(delta)}</p>
         <small>{format_probability(summary.podium_probability)} podium ·
-          {format_probability(summary.probability_better_than_baseline)} better than baseline ·
+          {"Reference" if baseline else format_probability(summary.probability_better_than_baseline)} better than baseline ·
           {format_gap(summary.expected_gap_to_winner_seconds)} to winner</small>
       </article>
     """
@@ -216,8 +216,10 @@ def _summary_frame(summaries: list[StrategyOutcomeSummary]) -> pd.DataFrame:
                     if item.strategy == "baseline"
                     else format_strategy_time(item.expected_delta_to_baseline_seconds)
                 ),
-                "Better than baseline": format_probability(
-                    item.probability_better_than_baseline
+                "Better than baseline": (
+                    "Reference"
+                    if item.strategy == "baseline"
+                    else format_probability(item.probability_better_than_baseline)
                 ),
             }
             for item in summaries

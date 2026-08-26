@@ -13,6 +13,7 @@ from f1pi.domain.exceptions import (
 )
 from f1pi.ui.errors import user_error
 from f1pi.ui.pages import strategy_simulator
+from f1pi.ui.components.strategy_simulator.results import _summary_frame
 from f1pi.ui.strategy_charts import finish_distribution_figure, position_trace_figure
 from f1pi.ui.strategy_formatting import (
     format_gap,
@@ -119,6 +120,16 @@ def test_strategy_display_formatting_is_consistent() -> None:
     assert "Pit-loss uncertainty" in strategy_warning_message(
         "sparse_green_pit_loss_calibration"
     )
+
+
+def test_baseline_probability_is_shown_as_a_reference() -> None:
+    summaries = strategy_run().analysis.summaries
+
+    frame = _summary_frame(summaries)
+
+    assert set(frame.loc[frame["Plan"] == "Baseline", "Better than baseline"]) == {
+        "Reference"
+    }
 
 
 def test_strategy_figures_show_baseline_and_candidates() -> None:
