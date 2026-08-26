@@ -16,6 +16,7 @@ from f1pi.analysis.models import (
     StrategySimulationRequest,
     TireModelConfig,
 )
+from f1pi.analysis.tire_model.features import prepare_observations
 from f1pi.domain.exceptions import (
     InsufficientStrategyDataError,
     LapNotFoundError,
@@ -236,7 +237,8 @@ class StrategyAnalysisFacade:
             LoadOptions(telemetry=False, weather=True, messages=False),
         )
         session = self._platform.sessions.open(key)
-        if session.track_status()["status"].astype(str).eq("5").any():
+        track_status = session.track_status()
+        if track_status["status"].astype(str).eq("5").any():
             raise UnsupportedStrategySessionError("red-flag races are not supported in v1")
         laps = session.laps()
         results = session.results()
@@ -246,14 +248,8 @@ class StrategyAnalysisFacade:
                 "the race has no classified drivers with usable lap data"
             )
         race_laps = int(pd.to_numeric(laps["lap_number"], errors="coerce").max())
-        compounds = tuple(
-            sorted(
-                compound
-                for compound in {
-                    str(value).strip().upper() for value in laps["compound"].dropna()
-                }
-                if compound and compound != "UNKNOWN"
-            )
+        compounds = _calibratable_strategy_compounds(
+            laps, session.weather(), track_status
         )
         if not compounds:
             raise InsufficientStrategyDataError("the race has no identifiable tire compounds")
@@ -317,6 +313,33 @@ def _classified_strategy_drivers(
                 )
             )
     return tuple(choices)
+
+
+def _calibratable_strategy_compounds(
+    laps: pd.DataFrame, weather: pd.DataFrame, track_status: pd.DataFrame
+) -> tuple[str, ...]:
+    """Return compounds with the clean pace support required by calibration."""
+    observations = prepare_observations(
+        laps,
+        weather,
+        track_status,
+        TireModelConfig(
+            confidence_level=StrategySimulationConfig().confidence_level,
+            quick_lap_ratio=2.0,
+            minimum_compound_stints=2,
+            minimum_compound_laps=5,
+        ),
+    )
+    support = observations.loc[observations["eligible"]].groupby("compound").agg(
+        laps=("lap_number", "size"), ages=("tire_age_laps", "nunique")
+    )
+    return tuple(
+        sorted(
+            str(compound)
+            for compound, row in support.iterrows()
+            if int(row["laps"]) >= 5 and int(row["ages"]) >= 2
+        )
+    )
 
 
 def driver_options(results: pd.DataFrame, laps: pd.DataFrame) -> tuple[DriverOption, ...]:
