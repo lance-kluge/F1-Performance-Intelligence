@@ -91,6 +91,7 @@ def prepare_race(
     if request.decision_lap >= race_laps:
         raise InvalidStrategyError("decision_lap must precede the end of the race")
     _validate_target(results, laps, request.driver)
+    _validate_target_decision_lap(laps, request.driver, request.decision_lap)
     _reject_committed_target_stop(laps, request.driver, request.decision_lap)
     _validate_request_windows(request, race_laps)
 
@@ -242,6 +243,16 @@ def _reject_committed_target_stop(
     ]
     if not decision_rows.empty and decision_rows["pit_in_time_ns"].notna().any():
         raise InvalidStrategyError("decision_lap cannot be a target pit-in lap")
+
+
+def _validate_target_decision_lap(
+    laps: pd.DataFrame, driver: str, decision_lap: int
+) -> None:
+    has_decision_lap = (
+        laps["driver"].eq(driver) & laps["lap_number"].eq(decision_lap)
+    ).any()
+    if not has_decision_lap:
+        raise InvalidStrategyError("target has no data for decision_lap")
 
 
 def _validate_request_windows(request: StrategySimulationRequest, race_laps: int) -> None:

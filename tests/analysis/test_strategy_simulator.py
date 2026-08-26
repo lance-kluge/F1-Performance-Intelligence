@@ -381,6 +381,17 @@ def test_rejects_target_stop_committed_on_decision_lap() -> None:
         )
 
 
+def test_requires_exact_target_decision_lap() -> None:
+    session = StubStrategySession()
+    decision_row = session._laps["driver"].eq("AAA") & session._laps["lap_number"].eq(5)
+    session._laps = session._laps.loc[~decision_row].copy()
+
+    with pytest.raises(InvalidStrategyError, match="no data for decision_lap"):
+        StrategySimulationEngine().simulate(
+            session, _request(), StrategySimulationConfig(iterations=1)
+        )
+
+
 def test_rejects_red_flags_non_races_bad_targets_and_invalid_windows() -> None:
     with pytest.raises(UnsupportedStrategySessionError, match="red-flag"):
         StrategySimulationEngine().simulate(
