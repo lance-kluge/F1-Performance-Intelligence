@@ -11,9 +11,9 @@ from f1pi.domain.exceptions import (
     InvalidStrategyError,
     UnsupportedStrategySessionError,
 )
+from f1pi.ui.components.strategy_simulator.results import _summary_frame
 from f1pi.ui.errors import user_error
 from f1pi.ui.pages import strategy_simulator
-from f1pi.ui.components.strategy_simulator.results import _summary_frame
 from f1pi.ui.strategy_charts import finish_distribution_figure, position_trace_figure
 from f1pi.ui.strategy_formatting import (
     format_gap,

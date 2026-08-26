@@ -188,13 +188,18 @@ def _outcome_card(summary: StrategyOutcomeSummary) -> str:
     delta = "Observed-plan reference" if baseline else (
         f"{format_strategy_time(summary.expected_delta_to_baseline_seconds)} vs baseline"
     )
+    better_than_baseline = (
+        "Reference"
+        if baseline
+        else format_probability(summary.probability_better_than_baseline)
+    )
     return f"""
       <article class="f1pi-strategy-card{' is-baseline' if baseline else ''}">
         <span>{escape(_label(summary.strategy))}</span>
         <strong>{format_position(summary.expected_finish_position)}</strong>
         <p>{escape(delta)}</p>
         <small>{format_probability(summary.podium_probability)} podium ·
-          {"Reference" if baseline else format_probability(summary.probability_better_than_baseline)} better than baseline ·
+          {better_than_baseline} better than baseline ·
           {format_gap(summary.expected_gap_to_winner_seconds)} to winner</small>
       </article>
     """
