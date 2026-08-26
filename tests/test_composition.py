@@ -2,6 +2,7 @@ from pathlib import Path
 
 from f1pi.application.repository import SessionRepository
 from f1pi.application.session_discovery import SessionDiscoveryService
+from f1pi.application.strategy_simulator import StrategySimulationService
 from f1pi.application.tire_model import TireModelService
 from f1pi.composition import build_platform
 from f1pi.config import PlatformSettings
@@ -15,4 +16,5 @@ def test_platform_factory(tmp_path: Path) -> None:
     assert isinstance(platform.sessions, SessionRepository)
     assert isinstance(platform.session_discovery, SessionDiscoveryService)
     assert isinstance(platform.tire_model, TireModelService)
+    assert isinstance(platform.strategy_simulator, StrategySimulationService)
     assert settings.processed_dir == tmp_path / "data" / "processed"

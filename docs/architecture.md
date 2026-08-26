@@ -14,7 +14,8 @@ Caller
   │       │
   │       ├───────────── IngestionService ──────────── local snapshot
   │       ├───────────── LapAnalysisService ────────── chart-ready comparison
-  │       └───────────── TireModelService ──────────── degradation curves + uncertainty
+  │       ├───────────── TireModelService ──────────── degradation curves + uncertainty
+  │       └───────────── StrategySimulationService ─── paired race counterfactuals
   │
   ├── FastF1Client.load ─────────────────────────── native FastF1 Session
   │
@@ -29,7 +30,8 @@ Caller
                                               │
                                               ├── performance segmentation + attribution
                                               └── structured summary + compatibility projections
-            └── TireModelService ───── TireDegradationEngine ── curves + validation
+            ├── TireModelService ───── TireDegradationEngine ── curves + validation
+            └── StrategySimulationService ─ StrategySimulationEngine ─ outcomes
 ```
 
 Native FastF1 `Session`, `Laps`, `Lap`, and `Telemetry` objects are intentionally available
@@ -53,6 +55,12 @@ live under `tests/integration/`. The UI depends on application services and immu
 records; it does not duplicate lap calculations or reach into Parquet and SQLite adapters.
 Future analysis and simulation packages can be added beside these layers without mixing their
 code into the ingestion foundation.
+
+The strategy simulator follows the same split. Its application service resolves one immutable
+Race or Sprint snapshot, while a presentation-neutral engine prepares the field, calibrates
+replaceable pace, pit, traffic, and neutralization models, and runs request-local Monte Carlo
+samples. Fitted models and samples are never persisted. Strategy analysis needs laps, results,
+weather, and track status, but not telemetry or race-control messages.
 
 The performance analyzer is a pure in-memory calculation over the active snapshot. It does not
 persist derived sections or increment the storage schema: existing normalized speed, throttle,
@@ -115,8 +123,7 @@ interpolated values; lap alignment and derived distance therefore belong to the 
 
 ## Future milestones
 
-Strategy simulation and future analytical services can follow the existing analyzers' split: an
-application service resolves a snapshot, a presentation-neutral engine owns the calculation, and
-immutable result records define the handoff to interfaces. They should obtain native sessions
-through `FastF1Client`, not configure FastF1 caches independently or infer schemas from raw cache
-files.
+Future analytical services should continue the existing split: an application service resolves a
+snapshot, a presentation-neutral engine owns the calculation, and immutable result records define
+the handoff to interfaces. They should obtain native sessions through `FastF1Client`, not configure
+FastF1 caches independently or infer schemas from raw cache files.

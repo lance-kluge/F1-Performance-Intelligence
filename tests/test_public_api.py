@@ -3,6 +3,12 @@ from f1pi import (
     DegradationMode,
     DriverTireDegradationAnalysis,
     DriverTireModelConfig,
+    NeutralizationKind,
+    NeutralizationScenario,
+    PlannedPitStop,
+    StrategyPlan,
+    StrategySimulationConfig,
+    StrategySimulationRequest,
     TireDegradationAnalysis,
     TireModelConfig,
     TireModelMetrics,
@@ -26,3 +32,15 @@ def test_tire_model_contracts_are_public_lazy_exports() -> None:
             TireStintSummary,
         )
     )
+
+
+def test_strategy_simulator_contracts_are_public_lazy_exports() -> None:
+    stop = PlannedPitStop(20, " hard ")
+    strategy = StrategyPlan("one_stop", (stop,))
+    request = StrategySimulationRequest(" lec ", 10, (strategy,))
+
+    assert stop.compound == "HARD"
+    assert request.driver == "LEC"
+    assert request.scenarios == (NeutralizationScenario.actual(),)
+    assert StrategySimulationConfig().iterations == 2000
+    assert NeutralizationKind.SAFETY_CAR.value == "safety_car"

@@ -25,6 +25,12 @@ class FittedTireRegressor(Protocol):
 
     def coefficient_interval(self, coefficient_name: str) -> tuple[float, float, float]: ...
 
+    def sample_coefficients(self, random: np.random.Generator, sample_count: int) -> np.ndarray: ...
+
+    def predict_with_coefficients(
+        self, observations: pd.DataFrame, coefficients: np.ndarray
+    ) -> np.ndarray: ...
+
 
 class TireRegressor(Protocol):
     def fit(
@@ -147,6 +153,27 @@ class _StatsmodelsFit:
             coefficient - critical_value * standard_error,
             coefficient + critical_value * standard_error,
         )
+
+    def sample_coefficients(self, random: np.random.Generator, sample_count: int) -> np.ndarray:
+        """Draw correlated coefficient vectors for downstream uncertainty propagation."""
+        coefficients = np.asarray(self.regression_result.params, dtype=float)
+        covariance = np.asarray(self.regression_result.cov_params(), dtype=float)
+        covariance = (covariance + covariance.T) / 2.0
+        eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+        positive_covariance = (eigenvectors * np.maximum(eigenvalues, 0.0)) @ eigenvectors.T
+        return random.multivariate_normal(
+            coefficients,
+            positive_covariance,
+            size=sample_count,
+            check_valid="ignore",
+        )
+
+    def predict_with_coefficients(
+        self, observations: pd.DataFrame, coefficients: np.ndarray
+    ) -> np.ndarray:
+        """Predict rows for one or many coefficient vectors."""
+        design_values = self.design(observations).to_numpy(dtype=float)
+        return np.asarray(np.asarray(coefficients, dtype=float) @ design_values.T)
 
 
 def _critical_value(regression_result: Any, confidence_level: float) -> float:
