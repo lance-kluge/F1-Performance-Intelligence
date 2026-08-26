@@ -6,7 +6,11 @@ import pandas as pd
 import pytest
 
 from f1pi.analysis.models import DegradationMode
-from f1pi.domain.exceptions import LapNotFoundError, UnsupportedStrategySessionError
+from f1pi.domain.exceptions import (
+    InsufficientStrategyDataError,
+    LapNotFoundError,
+    UnsupportedStrategySessionError,
+)
 from f1pi.domain.models import (
     IngestionResult,
     ScheduledEvent,
@@ -115,6 +119,29 @@ def test_strategy_facade_rejects_red_flag_during_setup() -> None:
     platform.sessions.open.return_value = stored
 
     with pytest.raises(UnsupportedStrategySessionError, match="red-flag"):
+        StrategyAnalysisFacade(platform).load_setup(SessionKey(2026, 1, "R"))
+
+
+def test_strategy_facade_reports_unusable_race_data() -> None:
+    platform = Mock()
+    platform.ingestion.ingest.return_value = IngestionResult("session", "run", False, ())
+    stored = Mock()
+    stored.track_status.return_value = pd.DataFrame({"status": ["1"]})
+    stored.results.return_value = pd.DataFrame(
+        {"position": [], "status": [], "abbreviation": []}
+    )
+    stored.laps.return_value = pd.DataFrame(
+        {
+            "driver": [],
+            "lap_number": [],
+            "lap_time_ns": [],
+            "lap_start_time_ns": [],
+            "is_accurate": [],
+        }
+    )
+    platform.sessions.open.return_value = stored
+
+    with pytest.raises(InsufficientStrategyDataError, match="no classified drivers"):
         StrategyAnalysisFacade(platform).load_setup(SessionKey(2026, 1, "R"))
 
 

@@ -16,7 +16,11 @@ from f1pi.analysis.models import (
     StrategySimulationRequest,
     TireModelConfig,
 )
-from f1pi.domain.exceptions import LapNotFoundError, UnsupportedStrategySessionError
+from f1pi.domain.exceptions import (
+    InsufficientStrategyDataError,
+    LapNotFoundError,
+    UnsupportedStrategySessionError,
+)
 from f1pi.domain.models import (
     IngestionResult,
     LoadOptions,
@@ -238,7 +242,9 @@ class StrategyAnalysisFacade:
         results = session.results()
         drivers = _classified_strategy_drivers(results, laps)
         if not drivers:
-            raise LapNotFoundError("the race has no classified drivers with usable lap data")
+            raise InsufficientStrategyDataError(
+                "the race has no classified drivers with usable lap data"
+            )
         race_laps = int(pd.to_numeric(laps["lap_number"], errors="coerce").max())
         compounds = tuple(
             sorted(
@@ -250,7 +256,7 @@ class StrategyAnalysisFacade:
             )
         )
         if not compounds:
-            raise LapNotFoundError("the race has no identifiable tire compounds")
+            raise InsufficientStrategyDataError("the race has no identifiable tire compounds")
         return StrategySimulationSetup(
             key=key,
             metadata=session.metadata,
