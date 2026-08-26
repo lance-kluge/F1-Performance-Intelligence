@@ -35,6 +35,8 @@ class FakeFastF1Session:
         )
         self._laps = pd.DataFrame()
         self.laps_loaded = True
+        self.laps_read_count = 0
+        self.unload_laps_after_first_read = False
         self.track_status = pd.DataFrame()
         self.session_status = pd.DataFrame()
         self.weather_data = pd.DataFrame()
@@ -49,8 +51,11 @@ class FakeFastF1Session:
 
     @property
     def laps(self) -> pd.DataFrame:
-        if not self.laps_loaded:
+        if not self.laps_loaded or (
+            self.unload_laps_after_first_read and self.laps_read_count > 0
+        ):
             raise DataNotLoadedError("laps were not loaded")
+        self.laps_read_count += 1
         return self._laps
 
     def get_circuit_info(self) -> SimpleNamespace:
@@ -129,6 +134,20 @@ def test_client_maps_unloaded_laps_to_upstream_unavailable(
 
     with pytest.raises(UpstreamUnavailableError):
         FastF1Client(tmp_path / "cache").load(SessionKey(2022, "Bahrain", "R"))
+
+
+def test_client_fetch_maps_laps_that_become_unavailable_after_loading(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = FakeFastF1Session()
+    session.unload_laps_after_first_read = True
+    monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
+    monkeypatch.setattr(
+        fastf1_client.fastf1.Cache, "enable_cache", lambda path, **options: None
+    )
+
+    with pytest.raises(UpstreamUnavailableError):
+        FastF1Client(tmp_path / "cache").fetch(SessionKey(2022, "Bahrain", "R"), LoadOptions())
 
 
 def test_client_normalizes_supported_event_schedule(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -135,9 +135,13 @@ class FastF1Client:
         )
 
         results = _snapshot_frame(session.results)
+        try:
+            laps = _snapshot_frame(session.laps)
+        except DataNotLoadedError as error:
+            raise UpstreamUnavailableError(str(error)) from error
         datasets = [
             SourceDataset(DatasetKind.RESULTS, results),
-            SourceDataset(DatasetKind.LAPS, _snapshot_frame(session.laps)),
+            SourceDataset(DatasetKind.LAPS, laps),
             SourceDataset(DatasetKind.TRACK_STATUS, _snapshot_frame(session.track_status)),
             SourceDataset(DatasetKind.SESSION_STATUS, _snapshot_frame(session.session_status)),
         ]
