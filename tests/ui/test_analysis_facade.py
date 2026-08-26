@@ -22,6 +22,7 @@ from f1pi.ui.analysis_facade import (
     LapAnalysisFacade,
     StrategyAnalysisFacade,
     TireAnalysisFacade,
+    _classified_strategy_drivers,
     driver_options,
 )
 from f1pi.ui.models import LoadedSession
@@ -143,6 +144,20 @@ def test_strategy_facade_reports_unusable_race_data() -> None:
 
     with pytest.raises(InsufficientStrategyDataError, match="no classified drivers"):
         StrategyAnalysisFacade(platform).load_setup(SessionKey(2026, 1, "R"))
+
+
+def test_strategy_decision_laps_require_tire_state() -> None:
+    results, laps = _session_frames()
+    laps["pit_in_time_ns"] = pd.NA
+    laps["compound"] = ["SOFT", "UNKNOWN", "HARD", "MEDIUM"]
+    laps["tyre_life"] = [2, 3, pd.NA, 4]
+    results["status"] = ["Finished", "Finished", "Retired"]
+
+    drivers = _classified_strategy_drivers(results, laps)
+
+    assert [(driver.abbreviation, driver.accurate_lap_numbers) for driver in drivers] == [
+        ("NOR", (7,))
+    ]
 
 
 def test_tire_facade_exposes_only_race_and_sprint_sessions() -> None:

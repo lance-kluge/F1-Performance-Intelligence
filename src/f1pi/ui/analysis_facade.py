@@ -300,6 +300,9 @@ def _classified_strategy_drivers(
             & laps["lap_time_ns"].notna()
             & laps["lap_start_time_ns"].notna()
             & laps["pit_in_time_ns"].isna()
+            & laps["compound"].astype("string").str.strip().str.upper().ne("UNKNOWN")
+            & laps["compound"].notna()
+            & pd.to_numeric(laps["tyre_life"], errors="coerce").notna()
         ]
         lap_numbers = tuple(
             sorted({int(number) for number in driver_laps["lap_number"].dropna()})
