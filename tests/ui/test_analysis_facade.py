@@ -159,7 +159,6 @@ def test_strategy_decision_laps_require_tire_state() -> None:
         ("NOR", (7,))
     ]
 
-
 def test_tire_facade_exposes_only_race_and_sprint_sessions() -> None:
     platform = Mock()
     platform.session_discovery.list_available_events.return_value = (
