@@ -334,6 +334,17 @@ def test_secondary_calibrators_only_receive_fitted_compounds(
     assert observed_inputs == [{"HARD", "SOFT"}, {"HARD", "SOFT"}]
 
 
+def test_rejects_missing_compound_in_initial_state() -> None:
+    session = StubStrategySession()
+    decision_row = session._laps["driver"].eq("AAA") & session._laps["lap_number"].eq(5)
+    session._laps.loc[decision_row, "compound"] = pd.NA
+
+    with pytest.raises(InsufficientStrategyDataError, match=r"initial state.*AAA"):
+        StrategySimulationEngine().simulate(
+            session, _request(), StrategySimulationConfig(iterations=1)
+        )
+
+
 def test_rejects_red_flags_non_races_bad_targets_and_invalid_windows() -> None:
     with pytest.raises(UnsupportedStrategySessionError, match="red-flag"):
         StrategySimulationEngine().simulate(

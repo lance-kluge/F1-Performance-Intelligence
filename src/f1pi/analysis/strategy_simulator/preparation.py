@@ -274,7 +274,13 @@ def _initial_states(
         if completed.empty:
             continue
         current = completed.iloc[-1]
-        if pd.isna(current["lap_end_seconds"]) or pd.isna(current["tire_age_laps"]):
+        compound = current["compound"]
+        if (
+            pd.isna(current["lap_end_seconds"])
+            or pd.isna(current["tire_age_laps"])
+            or pd.isna(compound)
+            or str(compound).strip() in {"", "UNKNOWN"}
+        ):
             raise InsufficientStrategyDataError(f"initial state is incomplete for {driver}")
         result = results.loc[results["abbreviation"].astype(str).str.upper().eq(driver)]
         status = "" if result.empty else str(result.iloc[0].get("status", ""))
@@ -284,7 +290,7 @@ def _initial_states(
                 driver=driver,
                 completed_laps=int(current["lap_number"]),
                 elapsed_seconds=float(current["lap_end_seconds"]) - race_origin_seconds,
-                compound=str(current["compound"]),
+                compound=str(compound),
                 tire_age_laps=float(current["tire_age_laps"]),
                 maximum_laps=(
                     race_laps if classified_finisher else int(driver_laps["lap_number"].max())
