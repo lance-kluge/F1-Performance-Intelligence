@@ -14,6 +14,7 @@ from f1pi.ui.components.landing import (
     render_hero_copy,
     render_lap_analysis_choice,
     render_methodology,
+    render_strategy_simulator_choice,
     render_tire_degradation_choice,
     render_workflow,
 )
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
 def render_home(
     lap_analysis_page: Page | None = None,
     tire_degradation_page: Page | None = None,
+    strategy_simulator_page: Page | None = None,
 ) -> None:
     """Render the network-free landing experience."""
     render_wordmark()
@@ -38,13 +40,16 @@ def render_home(
         render_analysis_preview()
     render_benefits()
     render_analysis_choice_intro()
-    lap_choice, tire_choice = st.columns(2, gap="medium")
+    lap_choice, tire_choice, strategy_choice = st.columns(3, gap="medium")
     with lap_choice:
         render_lap_analysis_choice()
         _analysis_link(lap_analysis_page, key="choice")
     with tire_choice:
         render_tire_degradation_choice()
         _tire_degradation_link(tire_degradation_page)
+    with strategy_choice:
+        render_strategy_simulator_choice()
+        _strategy_simulator_link(strategy_simulator_page)
     render_workflow()
     render_methodology()
     render_final_callout()
@@ -82,6 +87,24 @@ def _tire_degradation_link(tire_degradation_page: Page | None) -> None:
     st.page_link(
         tire_degradation_page,
         label="Open tire degradation",
+        icon=":material/arrow_forward:",
+        width="stretch",
+    )
+
+
+def _strategy_simulator_link(strategy_simulator_page: Page | None) -> None:
+    if strategy_simulator_page is None:
+        st.button(
+            "Open strategy simulator — coming next",
+            key="choice_strategy_simulator_cta",
+            type="primary",
+            disabled=True,
+            width="stretch",
+        )
+        return
+    st.page_link(
+        strategy_simulator_page,
+        label="Open strategy simulator",
         icon=":material/arrow_forward:",
         width="stretch",
     )

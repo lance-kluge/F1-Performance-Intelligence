@@ -6,7 +6,11 @@ import pandas as pd
 import pytest
 
 from f1pi.analysis.models import DegradationMode
-from f1pi.domain.exceptions import LapNotFoundError
+from f1pi.domain.exceptions import (
+    InsufficientStrategyDataError,
+    LapNotFoundError,
+    UnsupportedStrategySessionError,
+)
 from f1pi.domain.models import (
     IngestionResult,
     ScheduledEvent,
@@ -14,7 +18,13 @@ from f1pi.domain.models import (
     SessionKey,
     SessionType,
 )
-from f1pi.ui.analysis_facade import LapAnalysisFacade, TireAnalysisFacade, driver_options
+from f1pi.ui.analysis_facade import (
+    LapAnalysisFacade,
+    StrategyAnalysisFacade,
+    TireAnalysisFacade,
+    _classified_strategy_drivers,
+    driver_options,
+)
 from f1pi.ui.models import LoadedSession
 
 
@@ -100,6 +110,54 @@ def test_facade_rejects_session_without_accurate_laps(loaded_session: LoadedSess
 
     with pytest.raises(LapNotFoundError, match="accurate timed lap"):
         LapAnalysisFacade(platform).load_session(SessionKey(2026, 1, "Q"))
+
+
+def test_strategy_facade_rejects_red_flag_during_setup() -> None:
+    platform = Mock()
+    platform.ingestion.ingest.return_value = IngestionResult("session", "run", False, ())
+    stored = Mock()
+    stored.track_status.return_value = pd.DataFrame({"status": ["1", "5"]})
+    platform.sessions.open.return_value = stored
+
+    with pytest.raises(UnsupportedStrategySessionError, match="red-flag"):
+        StrategyAnalysisFacade(platform).load_setup(SessionKey(2026, 1, "R"))
+
+
+def test_strategy_facade_reports_unusable_race_data() -> None:
+    platform = Mock()
+    platform.ingestion.ingest.return_value = IngestionResult("session", "run", False, ())
+    stored = Mock()
+    stored.track_status.return_value = pd.DataFrame({"status": ["1"]})
+    stored.results.return_value = pd.DataFrame(
+        {"position": [], "status": [], "abbreviation": []}
+    )
+    stored.laps.return_value = pd.DataFrame(
+        {
+            "driver": [],
+            "lap_number": [],
+            "lap_time_ns": [],
+            "lap_start_time_ns": [],
+            "is_accurate": [],
+        }
+    )
+    platform.sessions.open.return_value = stored
+
+    with pytest.raises(InsufficientStrategyDataError, match="no classified drivers"):
+        StrategyAnalysisFacade(platform).load_setup(SessionKey(2026, 1, "R"))
+
+
+def test_strategy_decision_laps_require_tire_state() -> None:
+    results, laps = _session_frames()
+    laps["pit_in_time_ns"] = pd.NA
+    laps["compound"] = ["SOFT", "UNKNOWN", "HARD", "MEDIUM"]
+    laps["tyre_life"] = [2, 3, pd.NA, 4]
+    results["status"] = ["Finished", "Finished", "Retired"]
+
+    drivers = _classified_strategy_drivers(results, laps)
+
+    assert [(driver.abbreviation, driver.accurate_lap_numbers) for driver in drivers] == [
+        ("NOR", (7,))
+    ]
 
 
 def test_tire_facade_exposes_only_race_and_sprint_sessions() -> None:

@@ -6,11 +6,14 @@ from dataclasses import dataclass
 
 from f1pi.domain.exceptions import (
     IncompatibleSchemaError,
+    InsufficientStrategyDataError,
     InsufficientTireDataError,
     InvalidSessionError,
+    InvalidStrategyError,
     LapNotFoundError,
     StorageError,
     TelemetryNotAvailableError,
+    UnsupportedStrategySessionError,
     UnsupportedTireSessionError,
     UpstreamRateLimitError,
     UpstreamUnavailableError,
@@ -53,6 +56,22 @@ def user_error(error: Exception) -> UserError:
         )
     if isinstance(error, InsufficientTireDataError):
         return _insufficient_tire_data_error(error)
+    if isinstance(error, UnsupportedStrategySessionError):
+        return UserError(
+            "Race cannot be simulated",
+            "Choose a completed Race or Sprint without a red flag.",
+        )
+    if isinstance(error, InvalidStrategyError):
+        return UserError(
+            "Strategy is not valid",
+            "Check the decision lap, stop laps, and scenario window, then run it again.",
+        )
+    if isinstance(error, InsufficientStrategyDataError):
+        return UserError(
+            "Not enough race data",
+            "Choose another completed Race or Sprint with timing, tire, weather, and "
+            "track-status data.",
+        )
     if isinstance(error, IncompatibleSchemaError):
         return UserError(
             "Stored data needs refreshing",

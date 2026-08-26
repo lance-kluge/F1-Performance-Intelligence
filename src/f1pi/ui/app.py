@@ -6,6 +6,7 @@ import streamlit as st
 
 from f1pi.ui.pages.home import render_home
 from f1pi.ui.pages.lap_analysis import render_lap_analysis
+from f1pi.ui.pages.strategy_simulator import render_strategy_simulator
 from f1pi.ui.pages.tire_degradation import render_tire_degradation
 from f1pi.ui.styles import load_styles
 
@@ -32,9 +33,15 @@ def main() -> None:
         icon=":material/tire_repair:",
         url_path="tire-degradation",
     )
+    strategy_simulator = st.Page(
+        render_strategy_simulator,
+        title="Strategy simulator",
+        icon=":material/alt_route:",
+        url_path="strategy-simulator",
+    )
 
     def home_page() -> None:
-        render_home(analysis, tire_degradation)
+        render_home(analysis, tire_degradation, strategy_simulator)
 
     home = st.Page(
         home_page,
@@ -43,5 +50,7 @@ def main() -> None:
         url_path="home",
         default=True,
     )
-    navigation = st.navigation([home, analysis, tire_degradation], position="top")
+    navigation = st.navigation(
+        [home, analysis, tire_degradation, strategy_simulator], position="top"
+    )
     navigation.run()

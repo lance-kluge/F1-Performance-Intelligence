@@ -10,7 +10,7 @@ with confidence and prediction intervals.
 
 The analytical package is presentation-neutral. A Streamlit interface builds on these contracts
 without owning analytical logic. The strategy backend evaluates full-field, hindsight-calibrated
-race counterfactuals; its Streamlit interface and the race-engineer interface remain future work.
+race counterfactuals; the race-engineer interface remains future work.
 
 ## Setup
 
@@ -48,6 +48,12 @@ In **Tire degradation**, choose a completed Race or Sprint and run the recommend
 condition-adjusted model or inspect the raw lap-time trend. Results lead with compound degradation
 rates and their uncertainty, then expose modeled curves, whole-stint validation, lap eligibility,
 and the stable stints behind the fit. Existing snapshots are reused and telemetry is not loaded.
+
+In **Strategy simulator**, choose a completed Race or Sprint, load its lightweight race snapshot,
+and select a driver and exact decision lap. Two explicit future pit plans are compared with the
+observed remaining strategy under the actual race-control timeline, a green-race counterfactual,
+or both. Results include paired Monte Carlo outcome ranges, projected position traces, finish
+distributions, calibration diagnostics, and readable model warnings.
 
 ## Quick start
 

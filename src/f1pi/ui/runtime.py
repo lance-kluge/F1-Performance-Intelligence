@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from f1pi.ui.analysis_facade import LapAnalysisFacade, TireAnalysisFacade
+from f1pi.ui.analysis_facade import LapAnalysisFacade, StrategyAnalysisFacade, TireAnalysisFacade
 
 
 @st.cache_resource(show_spinner=False)
@@ -21,3 +21,11 @@ def get_tire_analysis_facade() -> TireAnalysisFacade:
     from f1pi.composition import build_platform
 
     return TireAnalysisFacade(build_platform())
+
+
+@st.cache_resource(show_spinner=False)
+def get_strategy_analysis_facade() -> StrategyAnalysisFacade:
+    """Build strategy services only when the simulator page is visited."""
+    from f1pi.composition import build_platform
+
+    return StrategyAnalysisFacade(build_platform())

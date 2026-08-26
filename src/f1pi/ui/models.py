@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from f1pi.analysis.models import DriverTireDegradationAnalysis, TireDegradationAnalysis
+from f1pi.analysis.models import (
+    DriverTireDegradationAnalysis,
+    StrategySimulationAnalysis,
+    TireDegradationAnalysis,
+)
 from f1pi.domain.models import SessionKey, SessionMetadata
 
 
@@ -42,4 +46,24 @@ class DriverTireAnalysisRun:
     """Completed driver-scoped tire model plus snapshot provenance."""
 
     analysis: DriverTireDegradationAnalysis
+    snapshot_reused: bool
+
+
+@dataclass(frozen=True, slots=True)
+class StrategySimulationSetup:
+    """UI-ready race inputs discovered from a lightweight local snapshot."""
+
+    key: SessionKey
+    metadata: SessionMetadata
+    drivers: tuple[DriverOption, ...]
+    race_laps: int
+    compounds: tuple[str, ...]
+    snapshot_reused: bool
+
+
+@dataclass(frozen=True, slots=True)
+class StrategySimulationRun:
+    """Completed strategy simulation plus snapshot provenance."""
+
+    analysis: StrategySimulationAnalysis
     snapshot_reused: bool

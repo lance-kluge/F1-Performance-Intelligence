@@ -11,6 +11,7 @@ _STYLESHEET_PATHS = (
     "styles/workspace.css",
     "styles/results.css",
     "styles/tire_degradation.css",
+    "styles/strategy_simulator.css",
 )
 
 
