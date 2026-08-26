@@ -9,7 +9,7 @@ from pathlib import Path
 from f1pi.ui.styles import stylesheet
 
 
-def test_landing_page_renders_without_platform_or_fastf1() -> None:
+def test_landing_page_renders_without_platform_or_fastf1(tmp_path: Path) -> None:
     script = textwrap.dedent(
         """
         import json
@@ -28,16 +28,23 @@ def test_landing_page_renders_without_platform_or_fastf1() -> None:
             "page_links": [link.proto.label for link in app.get("page_link")],
             "markup": " ".join(element.proto.body for element in app.get("html")),
         }
-        print(json.dumps(result))
+        Path(sys.argv[2]).write_text(json.dumps(result), encoding="utf-8")
         """
     )
-    completed = subprocess.run(
-        [sys.executable, "-c", script, str(Path(__file__).parents[2] / "streamlit_app.py")],
+    result_path = tmp_path / "landing-page-result.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            script,
+            str(Path(__file__).parents[2] / "streamlit_app.py"),
+            str(result_path),
+        ],
         check=True,
         capture_output=True,
         text=True,
     )
-    result = json.loads(completed.stdout)
+    result = json.loads(result_path.read_text(encoding="utf-8"))
 
     assert not result["has_exception"]
     assert not result["composition_loaded"]
