@@ -29,7 +29,9 @@ from f1pi.domain.exceptions import (
 class PaceModel(Protocol):
     supported_compounds: tuple[str, ...]
 
-    def sample_coefficients(self, random: np.random.Generator, sample_count: int) -> np.ndarray: ...
+    def sample_coefficients(
+        self, random_generator: np.random.Generator, sample_count: int
+    ) -> np.ndarray: ...
 
     def predict(
         self,
@@ -77,15 +79,17 @@ class CalibratedModels:
 
 @dataclass(slots=True)
 class RegressionPaceModel:
-    fitted: FittedTireRegressor
+    tire_regressor: FittedTireRegressor
     weather_by_lap: pd.DataFrame
     supported_compounds: tuple[str, ...]
     compound_fallbacks: dict[str, str]
     residuals_by_driver: dict[str, np.ndarray]
     pooled_residuals: np.ndarray
 
-    def sample_coefficients(self, random: np.random.Generator, sample_count: int) -> np.ndarray:
-        return self.fitted.sample_coefficients(random, sample_count)
+    def sample_coefficients(
+        self, random_generator: np.random.Generator, sample_count: int
+    ) -> np.ndarray:
+        return self.tire_regressor.sample_coefficients(random_generator, sample_count)
 
     def predict(
         self,
@@ -111,7 +115,7 @@ class RegressionPaceModel:
                 },
             }
         )
-        return self.fitted.predict_with_coefficients(rows, coefficients)
+        return self.tire_regressor.predict_with_coefficients(rows, coefficients)
 
     def residual_draws(self, drivers: tuple[str, ...], uniforms: np.ndarray) -> np.ndarray:
         draws = np.zeros_like(uniforms, dtype=float)
@@ -137,22 +141,31 @@ class EmpiricalPitLossModel:
 
 @dataclass(frozen=True, slots=True)
 class EmpiricalTrafficModel:
-    maximum_gap: float
-    edges: np.ndarray
-    medians: np.ndarray
-    residuals: np.ndarray
+    maximum_gap_seconds: float
+    gap_bucket_edges_seconds: np.ndarray
+    median_penalties_seconds: np.ndarray
+    penalty_residuals_seconds: np.ndarray
     sample_count: int
 
     def penalties(self, gaps: np.ndarray, uniforms: np.ndarray) -> np.ndarray:
         penalties = np.zeros_like(gaps, dtype=float)
-        active = np.isfinite(gaps) & (gaps >= 0) & (gaps <= self.maximum_gap)
+        active = np.isfinite(gaps) & (gaps >= 0) & (gaps <= self.maximum_gap_seconds)
         if not np.any(active):
             return penalties
-        bucket = np.clip(np.searchsorted(self.edges, gaps[active], side="right") - 1, 0, 3)
-        residual_indices = np.minimum(
-            (uniforms[active] * len(self.residuals)).astype(int), len(self.residuals) - 1
+        bucket = np.clip(
+            np.searchsorted(self.gap_bucket_edges_seconds, gaps[active], side="right") - 1,
+            0,
+            3,
         )
-        penalties[active] = np.maximum(self.medians[bucket] + self.residuals[residual_indices], 0.0)
+        residual_indices = np.minimum(
+            (uniforms[active] * len(self.penalty_residuals_seconds)).astype(int),
+            len(self.penalty_residuals_seconds) - 1,
+        )
+        penalties[active] = np.maximum(
+            self.median_penalties_seconds[bucket]
+            + self.penalty_residuals_seconds[residual_indices],
+            0.0,
+        )
         return penalties
 
 
@@ -223,19 +236,23 @@ def calibrate_models(
         raise InsufficientStrategyDataError("no compound has enough clean laps for pace modeling")
 
     try:
-        fitted = StatsmodelsTireRegressor().fit(
+        tire_regressor = StatsmodelsTireRegressor().fit(
             clean, DegradationMode.ADJUSTED, config.confidence_level
         )
     except (InsufficientTireDataError, np.linalg.LinAlgError) as error:
         raise InsufficientStrategyDataError("pace model could not be identified") from error
-    warnings.extend(fitted.warnings)
-    predicted = fitted.predict(clean)["predicted_lap_time_seconds"].to_numpy(dtype=float)
-    residual_values = clean["lap_time_seconds"].to_numpy(dtype=float) - predicted
+    warnings.extend(tire_regressor.warnings)
+    predicted_lap_times_seconds = tire_regressor.predict(clean)[
+        "predicted_lap_time_seconds"
+    ].to_numpy(dtype=float)
+    residual_values = (
+        clean["lap_time_seconds"].to_numpy(dtype=float) - predicted_lap_times_seconds
+    )
     residual_values = residual_values - float(np.mean(residual_values))
     pooled_residuals = residual_values if len(residual_values) else np.array([0.0])
     residuals_by_driver = {
         str(driver): values["lap_time_seconds"].to_numpy(dtype=float)
-        - fitted.predict(values)["predicted_lap_time_seconds"].to_numpy(dtype=float)
+        - tire_regressor.predict(values)["predicted_lap_time_seconds"].to_numpy(dtype=float)
         for driver, values in clean.groupby("driver")
         if len(values) >= 3
     }
@@ -249,7 +266,7 @@ def calibrate_models(
         for compound, fallback in sorted(compound_fallbacks.items())
     )
     pace = RegressionPaceModel(
-        fitted,
+        tire_regressor,
         prepared.weather_by_lap,
         supported_compounds,
         compound_fallbacks,
@@ -273,10 +290,10 @@ def calibrate_models(
         observations["compound"].isin(supported_compounds)
     ].copy()
     traffic, traffic_warnings = _calibrate_traffic(
-        fitted_compound_observations, fitted, config
+        fitted_compound_observations, tire_regressor, config
     )
     neutralization, neutralization_warnings = _calibrate_neutralization(
-        fitted_compound_observations, fitted, pit_loss
+        fitted_compound_observations, tire_regressor, pit_loss
     )
     warnings.extend((*pit_warnings, *traffic_warnings, *neutralization_warnings))
 
@@ -337,7 +354,7 @@ def _calibrate_pit_loss(
             pair = observations.loc[list(keys)]
             if pair[list(WEATHER_FEATURES)].isna().any(axis=None):
                 continue
-            expected = pace.fitted.predict(pair)["predicted_lap_time_seconds"].sum()
+            expected = pace.tire_regressor.predict(pair)["predicted_lap_time_seconds"].sum()
             actual = pair["lap_time_seconds"].sum()
             loss = float(actual - expected)
             if not np.isfinite(loss) or loss <= 0:
@@ -367,7 +384,7 @@ def _calibrate_pit_loss(
 
 def _calibrate_traffic(
     observations: pd.DataFrame,
-    fitted: FittedTireRegressor,
+    tire_regressor: FittedTireRegressor,
     config: StrategySimulationConfig,
 ) -> tuple[EmpiricalTrafficModel, tuple[str, ...]]:
     candidates = observations.loc[
@@ -383,8 +400,13 @@ def _calibrate_traffic(
             ),
             ("traffic_model_unavailable:no_close_laps",),
         )
-    predicted = fitted.predict(candidates)["predicted_lap_time_seconds"].to_numpy(dtype=float)
-    penalties = np.maximum(candidates["lap_time_seconds"].to_numpy(dtype=float) - predicted, 0.0)
+    predicted_lap_times_seconds = tire_regressor.predict(candidates)[
+        "predicted_lap_time_seconds"
+    ].to_numpy(dtype=float)
+    penalties = np.maximum(
+        candidates["lap_time_seconds"].to_numpy(dtype=float) - predicted_lap_times_seconds,
+        0.0,
+    )
     buckets = np.clip(
         np.searchsorted(edges, candidates["gap_ahead_seconds"].to_numpy(dtype=float), side="right")
         - 1,
@@ -416,7 +438,7 @@ def _calibrate_traffic(
 
 def _calibrate_neutralization(
     observations: pd.DataFrame,
-    fitted: FittedTireRegressor,
+    tire_regressor: FittedTireRegressor,
     pit_loss: EmpiricalPitLossModel,
 ) -> tuple[EmpiricalNeutralizationModel, tuple[str, ...]]:
     parameters: dict[NeutralizationKind, NeutralizationAssumptions] = {}
@@ -427,10 +449,17 @@ def _calibrate_neutralization(
         if rows.empty:
             continue
         try:
-            predicted = fitted.predict(rows)["predicted_lap_time_seconds"].to_numpy(dtype=float)
+            predicted_lap_times_seconds = tire_regressor.predict(rows)[
+                "predicted_lap_time_seconds"
+            ].to_numpy(dtype=float)
         except Exception:
             continue
-        ratio = float(np.median(rows["lap_time_seconds"].to_numpy(dtype=float) / predicted))
+        ratio = float(
+            np.median(
+                rows["lap_time_seconds"].to_numpy(dtype=float)
+                / predicted_lap_times_seconds
+            )
+        )
         ratio = max(ratio, 1.0)
         direct_pit = pit_loss.values_by_condition.get(kind.value)
         pit_multiplier = (

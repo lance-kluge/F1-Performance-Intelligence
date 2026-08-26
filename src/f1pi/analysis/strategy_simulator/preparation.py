@@ -79,13 +79,13 @@ def prepare_race(
 
     laps["driver"] = laps["driver"].astype("string").str.strip().str.upper()
     laps["compound"] = laps["compound"].astype("string").str.strip().str.upper()
-    laps["lap_time_seconds"] = _seconds(laps["lap_time_ns"])
-    laps["lap_start_seconds"] = _seconds(laps["lap_start_time_ns"])
+    laps["lap_time_seconds"] = _nanoseconds_to_seconds(laps["lap_time_ns"])
+    laps["lap_start_seconds"] = _nanoseconds_to_seconds(laps["lap_start_time_ns"])
     laps["lap_end_seconds"] = laps["lap_start_seconds"] + laps["lap_time_seconds"]
     laps["tire_age_laps"] = pd.to_numeric(laps["tyre_life"], errors="coerce")
     laps["condition"] = _conditions_from_timeline(laps, track_status)
     laps = laps.sort_values(["driver", "lap_number"], kind="stable").reset_index(drop=True)
-    laps["gap_ahead_seconds"] = _gaps_at_line(laps)
+    laps["gap_ahead_seconds"] = _calculate_finish_line_gaps_seconds(laps)
 
     race_laps = int(pd.to_numeric(laps["lap_number"], errors="coerce").max())
     if request.decision_lap >= race_laps:
@@ -106,8 +106,10 @@ def prepare_race(
             minimum_compound_laps=5,
         ),
     )
-    observations["gap_ahead_seconds"] = _lookup_column(observations, laps, "gap_ahead_seconds")
-    observations["condition"] = _lookup_column(observations, laps, "condition")
+    observations["gap_ahead_seconds"] = _align_lap_column(
+        observations, laps, "gap_ahead_seconds"
+    )
+    observations["condition"] = _align_lap_column(observations, laps, "condition")
 
     drivers = _ordered_drivers(results, laps)
     race_origin_seconds = float(
@@ -130,7 +132,7 @@ def prepare_race(
             if stop.after_lap > request.decision_lap
         ),
     )
-    actual_events = _actual_events(laps, results)
+    actual_events = _extract_actual_neutralization_events(laps, results)
     weather_by_lap = (
         observations.groupby("lap_number", sort=True)[
             [
@@ -176,7 +178,7 @@ def scenario_events(
     return tuple(event for event in events if event.end_lap > decision_lap)
 
 
-def _seconds(values: pd.Series) -> pd.Series:
+def _nanoseconds_to_seconds(values: pd.Series) -> pd.Series:
     return pd.to_numeric(values, errors="coerce").astype(float) / NANOSECONDS_PER_SECOND
 
 
@@ -190,7 +192,7 @@ def _condition_from_statuses(statuses: tuple[str, ...]) -> str:
 
 def _conditions_from_timeline(laps: pd.DataFrame, track_status: pd.DataFrame) -> pd.Series:
     timeline = track_status.copy()
-    timeline["_time_seconds"] = _seconds(timeline["time_ns"])
+    timeline["_time_seconds"] = _nanoseconds_to_seconds(timeline["time_ns"])
     timeline = timeline.dropna(subset=["_time_seconds"]).sort_values("_time_seconds")
     event_times = timeline["_time_seconds"].to_numpy(dtype=float)
     event_codes = timeline["status"].astype(str).to_numpy()
@@ -208,7 +210,7 @@ def _conditions_from_timeline(laps: pd.DataFrame, track_status: pd.DataFrame) ->
     return pd.Series(conditions, index=laps.index, dtype="string")
 
 
-def _gaps_at_line(laps: pd.DataFrame) -> pd.Series:
+def _calculate_finish_line_gaps_seconds(laps: pd.DataFrame) -> pd.Series:
     gaps = pd.Series(np.nan, index=laps.index, dtype=float)
     for _, same_lap in laps.groupby("lap_number", sort=False):
         ordered = same_lap.dropna(subset=["lap_end_seconds"]).sort_values("lap_end_seconds")
@@ -218,7 +220,7 @@ def _gaps_at_line(laps: pd.DataFrame) -> pd.Series:
     return gaps
 
 
-def _lookup_column(target: pd.DataFrame, source: pd.DataFrame, column: str) -> pd.Series:
+def _align_lap_column(target: pd.DataFrame, source: pd.DataFrame, column: str) -> pd.Series:
     values = source.set_index(["driver", "lap_number"])[column]
     index = pd.MultiIndex.from_frame(target[["driver", "lap_number"]])
     return pd.Series(values.reindex(index).to_numpy(), index=target.index)
@@ -351,7 +353,9 @@ def _observed_plan(laps: pd.DataFrame, driver: str) -> StrategyPlan:
     return StrategyPlan(f"observed:{driver}", tuple(stops))
 
 
-def _actual_events(laps: pd.DataFrame, results: pd.DataFrame) -> tuple[NeutralizationEvent, ...]:
+def _extract_actual_neutralization_events(
+    laps: pd.DataFrame, results: pd.DataFrame
+) -> tuple[NeutralizationEvent, ...]:
     winner_rows = results.loc[pd.to_numeric(results["position"], errors="coerce").eq(1)]
     leader = (
         str(winner_rows.iloc[0]["abbreviation"]).upper()

@@ -57,7 +57,7 @@ class StubStrategySession:
             session_date_utc=datetime(2026, 3, 1, tzinfo=UTC),
             fastf1_version="3.8.3",
         )
-        self._laps = _sample_laps()
+        self._laps = _sample_race_laps()
         final_time = int(self._laps["lap_start_time_ns"].max() + 200e9)
         self._weather = pd.DataFrame(
             {
@@ -99,7 +99,7 @@ class StubStrategySession:
         return self._track_status
 
 
-def _sample_laps() -> pd.DataFrame:
+def _sample_race_laps() -> pd.DataFrame:
     records: list[dict[str, object]] = []
     for driver_index, driver in enumerate(("AAA", "BBB", "CCC", "DDD")):
         start = 0.0
@@ -144,7 +144,7 @@ def _sample_laps() -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
-def _request(*scenarios: NeutralizationScenario) -> StrategySimulationRequest:
+def _strategy_request(*scenarios: NeutralizationScenario) -> StrategySimulationRequest:
     return StrategySimulationRequest(
         " aaa ",
         5,
@@ -159,30 +159,50 @@ def _request(*scenarios: NeutralizationScenario) -> StrategySimulationRequest:
 def test_simulates_full_field_with_paired_reproducible_outcomes() -> None:
     config = StrategySimulationConfig(iterations=30, random_seed=17)
 
-    first = StrategySimulationEngine().simulate(StubStrategySession(), _request(), config)
-    second = StrategySimulationEngine().simulate(StubStrategySession(), _request(), config)
+    first_analysis = StrategySimulationEngine().simulate(
+        StubStrategySession(), _strategy_request(), config
+    )
+    repeated_analysis = StrategySimulationEngine().simulate(
+        StubStrategySession(), _strategy_request(), config
+    )
 
-    assert first.driver == "AAA"
-    assert first.baseline.stops[0].after_lap == 10
-    assert len(first.summaries) == 3
-    assert set(first.outcome_samples["strategy"]) == {"baseline", "early", "late"}
-    assert len(first.outcome_samples) == 90
-    assert set(first.lap_distributions["driver"]) == {"AAA", "BBB", "CCC", "DDD"}
-    pd.testing.assert_frame_equal(first.outcome_samples, second.outcome_samples)
-    assert first.diagnostics.pace_observation_count > 20
-    assert first.diagnostics.pit_stop_sample_count == 4
-    assert set(first.diagnostics.supported_compounds) == {"HARD", "SOFT"}
+    assert first_analysis.driver == "AAA"
+    assert first_analysis.baseline.stops[0].after_lap == 10
+    assert len(first_analysis.summaries) == 3
+    assert set(first_analysis.outcome_samples["strategy"]) == {
+        "baseline",
+        "early",
+        "late",
+    }
+    assert len(first_analysis.outcome_samples) == 90
+    assert set(first_analysis.lap_distributions["driver"]) == {
+        "AAA",
+        "BBB",
+        "CCC",
+        "DDD",
+    }
+    pd.testing.assert_frame_equal(
+        first_analysis.outcome_samples, repeated_analysis.outcome_samples
+    )
+    assert first_analysis.diagnostics.pace_observation_count > 20
+    assert first_analysis.diagnostics.pit_stop_sample_count == 4
+    assert set(first_analysis.diagnostics.supported_compounds) == {"HARD", "SOFT"}
     assert (
-        first.outcome_samples.groupby("strategy")["delta_to_baseline_seconds"].mean()["early"] != 0
+        first_analysis.outcome_samples.groupby("strategy")["delta_to_baseline_seconds"]
+        .mean()["early"]
+        != 0
     )
     assert (
-        first.outcome_samples.loc[
-            first.outcome_samples["strategy"].eq("baseline"), "delta_to_baseline_seconds"
+        first_analysis.outcome_samples.loc[
+            first_analysis.outcome_samples["strategy"].eq("baseline"),
+            "delta_to_baseline_seconds",
         ]
         .eq(0)
         .all()
     )
-    assert all(0 <= summary.podium_probability <= 1 for summary in first.summaries)
+    assert all(
+        0 <= summary.podium_probability <= 1 for summary in first_analysis.summaries
+    )
 
 
 def test_no_safety_car_and_custom_vsc_scenarios_share_one_result() -> None:
@@ -199,7 +219,7 @@ def test_no_safety_car_and_custom_vsc_scenarios_share_one_result() -> None:
     )
     analysis = StrategySimulationEngine().simulate(
         StubStrategySession(),
-        _request(NeutralizationScenario.no_safety_car(), custom),
+        _strategy_request(NeutralizationScenario.no_safety_car(), custom),
         StrategySimulationConfig(iterations=8),
     )
 
@@ -234,7 +254,7 @@ def test_custom_safety_car_requires_assumptions_without_session_support(
     with pytest.raises(InsufficientStrategyDataError, match="custom assumptions"):
         StrategySimulationEngine().simulate(
             StubStrategySession(),
-            _request(NeutralizationScenario.no_safety_car(), scenario),
+            _strategy_request(NeutralizationScenario.no_safety_car(), scenario),
             StrategySimulationConfig(iterations=2),
         )
     assert simulation_calls == 0
@@ -250,7 +270,7 @@ def test_actual_scenario_is_derived_from_track_status_timeline() -> None:
         }
     )
 
-    request = _request()
+    request = _strategy_request()
     config = StrategySimulationConfig(iterations=3)
     prepared = prepare_race(session, request, config)
     actual_events = scenario_events(request.scenarios[0], prepared, request.decision_lap)
@@ -283,7 +303,7 @@ def test_fastf1_lap_down_status_is_a_classified_finisher() -> None:
     session._results.loc[session._results["abbreviation"].eq("AAA"), "status"] = "+ 1 Lap"
 
     analysis = StrategySimulationEngine().simulate(
-        session, _request(), StrategySimulationConfig(iterations=2)
+        session, _strategy_request(), StrategySimulationConfig(iterations=2)
     )
 
     assert analysis.driver == "AAA"
@@ -333,17 +353,21 @@ def test_secondary_calibrators_only_receive_fitted_compounds(
     original_neutralization = strategy_calibration._calibrate_neutralization
 
     def capture_traffic(
-        observations: pd.DataFrame, fitted: object, config: StrategySimulationConfig
+        observations: pd.DataFrame,
+        tire_regressor: object,
+        config: StrategySimulationConfig,
     ) -> object:
         observed_inputs.append(set(observations["compound"].astype(str)))
-        return original_traffic(observations, fitted, config)  # type: ignore[arg-type]
+        return original_traffic(  # type: ignore[arg-type]
+            observations, tire_regressor, config
+        )
 
     def capture_neutralization(
-        observations: pd.DataFrame, fitted: object, pit_loss: object
+        observations: pd.DataFrame, tire_regressor: object, pit_loss: object
     ) -> object:
         observed_inputs.append(set(observations["compound"].astype(str)))
         return original_neutralization(  # type: ignore[arg-type]
-            observations, fitted, pit_loss
+            observations, tire_regressor, pit_loss
         )
 
     monkeypatch.setattr(strategy_calibration, "_calibrate_traffic", capture_traffic)
@@ -351,7 +375,7 @@ def test_secondary_calibrators_only_receive_fitted_compounds(
         strategy_calibration, "_calibrate_neutralization", capture_neutralization
     )
     StrategySimulationEngine().simulate(
-        session, _request(), StrategySimulationConfig(iterations=1)
+        session, _strategy_request(), StrategySimulationConfig(iterations=1)
     )
 
     assert observed_inputs == [{"HARD", "SOFT"}, {"HARD", "SOFT"}]
@@ -364,7 +388,7 @@ def test_rejects_missing_compound_in_initial_state() -> None:
 
     with pytest.raises(InsufficientStrategyDataError, match=r"initial state.*AAA"):
         StrategySimulationEngine().simulate(
-            session, _request(), StrategySimulationConfig(iterations=1)
+            session, _strategy_request(), StrategySimulationConfig(iterations=1)
         )
 
 
@@ -388,22 +412,24 @@ def test_requires_exact_target_decision_lap() -> None:
 
     with pytest.raises(InvalidStrategyError, match="no data for decision_lap"):
         StrategySimulationEngine().simulate(
-            session, _request(), StrategySimulationConfig(iterations=1)
+            session, _strategy_request(), StrategySimulationConfig(iterations=1)
         )
 
 
 def test_rejects_red_flags_non_races_bad_targets_and_invalid_windows() -> None:
     with pytest.raises(UnsupportedStrategySessionError, match="red-flag"):
         StrategySimulationEngine().simulate(
-            StubStrategySession(red_flag=True), _request(), StrategySimulationConfig(iterations=1)
+            StubStrategySession(red_flag=True),
+            _strategy_request(),
+            StrategySimulationConfig(iterations=1),
         )
     with pytest.raises(UnsupportedStrategySessionError, match="Race and Sprint"):
         StrategySimulationEngine().simulate(
             StubStrategySession(session_type=SessionType.QUALIFYING),
-            _request(),
+            _strategy_request(),
             StrategySimulationConfig(iterations=1),
         )
-    missing = _request()
+    missing = _strategy_request()
     missing = StrategySimulationRequest("ZZZ", missing.decision_lap, missing.strategies)
     with pytest.raises(InvalidStrategyError, match="not present"):
         StrategySimulationEngine().simulate(
@@ -433,10 +459,12 @@ def test_traffic_penalties_are_bounded_and_safety_car_compresses_field() -> None
     assert penalties[0, 1] == pytest.approx(0.6)
     assert penalties[0, 2:].tolist() == [0.0, 0.0]
 
-    elapsed = np.array([[100.0, 108.0, 120.0]])
-    completed = np.array([[10, 10, 10]])
-    _compress_field(elapsed, completed, np.array([True, True, True]), 1.0)
-    assert elapsed.tolist() == [[100.0, 101.0, 102.0]]
+    elapsed_seconds = np.array([[100.0, 108.0, 120.0]])
+    completed_laps = np.array([[10, 10, 10]])
+    _compress_field(
+        elapsed_seconds, completed_laps, np.array([True, True, True]), 1.0
+    )
+    assert elapsed_seconds.tolist() == [[100.0, 101.0, 102.0]]
 
 
 def test_lap_deficit_has_no_seconds_gap() -> None:
@@ -451,9 +479,9 @@ def test_lap_deficit_has_no_seconds_gap() -> None:
 
 
 def test_slower_car_finishes_at_first_crossing_after_winner() -> None:
-    elapsed = np.array([[1_000.0, 1_170.0]])
-    completed = np.array([[10, 10]])
-    history = np.array(
+    elapsed_seconds = np.array([[1_000.0, 1_170.0]])
+    completed_laps = np.array([[10, 10]])
+    elapsed_history_seconds = np.array(
         [
             [
                 [600.0, 650.0],
@@ -466,16 +494,16 @@ def test_slower_car_finishes_at_first_crossing_after_winner() -> None:
     )
 
     _apply_chequered_flag(
-        elapsed,
-        completed,
+        elapsed_seconds,
+        completed_laps,
         np.array([5, 5]),
         np.array([10, 10]),
         10,
-        history,
+        elapsed_history_seconds,
     )
 
-    assert completed.tolist() == [[10, 9]]
-    assert elapsed.tolist() == [[1_000.0, 1_040.0]]
+    assert completed_laps.tolist() == [[10, 9]]
+    assert elapsed_seconds.tolist() == [[1_000.0, 1_040.0]]
 
 
 @pytest.mark.parametrize(

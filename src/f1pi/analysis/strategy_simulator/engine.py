@@ -66,13 +66,15 @@ class StrategySimulationEngine:
                 randomness,
             )
             outcome_frames.append(
-                _outcome_frame(scenario.name, "baseline", baseline_run, baseline_run)
+                _build_outcome_sample_frame(
+                    scenario.name, "baseline", baseline_run, baseline_run
+                )
             )
             trace_frames.append(
                 trace_distribution_frame(baseline_run, prepared, scenario.name, "baseline", config)
             )
             for strategy in request.strategies:
-                run = simulate_strategy(
+                strategy_run = simulate_strategy(
                     prepared,
                     models,
                     config,
@@ -82,10 +84,14 @@ class StrategySimulationEngine:
                     randomness,
                 )
                 outcome_frames.append(
-                    _outcome_frame(scenario.name, strategy.name, run, baseline_run)
+                    _build_outcome_sample_frame(
+                        scenario.name, strategy.name, strategy_run, baseline_run
+                    )
                 )
                 trace_frames.append(
-                    trace_distribution_frame(run, prepared, scenario.name, strategy.name, config)
+                    trace_distribution_frame(
+                        strategy_run, prepared, scenario.name, strategy.name, config
+                    )
                 )
 
         outcomes = pd.concat(outcome_frames, ignore_index=True)
@@ -95,7 +101,7 @@ class StrategySimulationEngine:
             driver=request.driver,
             decision_lap=request.decision_lap,
             baseline=prepared.baseline,
-            summaries=_summaries(outcomes),
+            summaries=_summarize_outcomes(outcomes),
             diagnostics=models.diagnostics,
             outcome_samples=outcomes,
             lap_distributions=traces,
@@ -103,7 +109,7 @@ class StrategySimulationEngine:
         )
 
 
-def _outcome_frame(
+def _build_outcome_sample_frame(
     scenario: str,
     strategy: str,
     run: SimulationRun,
@@ -130,7 +136,7 @@ def _outcome_frame(
     )
 
 
-def _summaries(outcomes: pd.DataFrame) -> tuple[StrategyOutcomeSummary, ...]:
+def _summarize_outcomes(outcomes: pd.DataFrame) -> tuple[StrategyOutcomeSummary, ...]:
     summaries: list[StrategyOutcomeSummary] = []
     for (scenario, strategy), rows in outcomes.groupby(["scenario", "strategy"], sort=False):
         positions = rows["finish_position"].to_numpy(dtype=float)
