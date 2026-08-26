@@ -63,3 +63,19 @@ class DriverNotFoundError(TireModelError):
 
 class InsufficientTireDataError(TireModelError):
     """No compound has enough clean, identifiable data for a tire model."""
+
+
+class StrategySimulationError(F1PIError):
+    """A strategy counterfactual cannot be simulated."""
+
+
+class UnsupportedStrategySessionError(StrategySimulationError):
+    """The requested session cannot be used for strategy simulation."""
+
+
+class InvalidStrategyError(StrategySimulationError):
+    """A strategy request contains contradictory or impossible instructions."""
+
+
+class InsufficientStrategyDataError(StrategySimulationError):
+    """The session does not contain enough information to calibrate the simulator."""

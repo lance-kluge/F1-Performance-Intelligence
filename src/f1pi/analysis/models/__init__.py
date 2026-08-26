@@ -25,6 +25,20 @@ from f1pi.analysis.models.performance_analysis import (
 )
 from f1pi.analysis.models.sector_comparison import SectorComparison
 from f1pi.analysis.models.straight_comparison import StraightComparison
+from f1pi.analysis.models.strategy_simulation import (
+    NeutralizationAssumptions,
+    NeutralizationEvent,
+    NeutralizationKind,
+    NeutralizationScenario,
+    NeutralizationSource,
+    PlannedPitStop,
+    StrategyCalibrationDiagnostics,
+    StrategyOutcomeSummary,
+    StrategyPlan,
+    StrategySimulationAnalysis,
+    StrategySimulationConfig,
+    StrategySimulationRequest,
+)
 from f1pi.analysis.models.synchronization_config import SynchronizationConfig
 from f1pi.analysis.models.tire_model import (
     CompoundDegradationEstimate,
@@ -56,13 +70,25 @@ __all__ = [
     "LapExplanation",
     "LapSelection",
     "LapSummary",
+    "NeutralizationAssumptions",
+    "NeutralizationEvent",
+    "NeutralizationKind",
+    "NeutralizationScenario",
+    "NeutralizationSource",
     "PerformanceSectionComparison",
     "PhaseComparison",
+    "PlannedPitStop",
     "SectionKind",
     "SectorComparison",
     "SegmentationConfig",
     "SegmentationSource",
     "StraightComparison",
+    "StrategyCalibrationDiagnostics",
+    "StrategyOutcomeSummary",
+    "StrategyPlan",
+    "StrategySimulationAnalysis",
+    "StrategySimulationConfig",
+    "StrategySimulationRequest",
     "SummaryFinding",
     "SynchronizationConfig",
     "TireDegradationAnalysis",

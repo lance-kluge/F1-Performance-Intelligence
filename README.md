@@ -9,8 +9,8 @@ backend extracts clean Race and Sprint stints and returns validated compound deg
 with confidence and prediction intervals.
 
 The analytical package is presentation-neutral. A Streamlit interface builds on these contracts
-without owning analytical logic; strategy simulation and the race-engineer interface remain
-future work.
+without owning analytical logic. The strategy backend evaluates full-field, hindsight-calibrated
+race counterfactuals; its Streamlit interface and the race-engineer interface remain future work.
 
 ## Setup
 
@@ -140,6 +140,29 @@ that tire age caused every recorded lap-time change. Individual-driver analysis 
 pipeline with driver-appropriate support thresholds; validation is `None` when whole-stint
 cross-validation is not possible.
 
+Evaluate alternative stop plans against the reconstructed observed baseline:
+
+```python
+from f1pi import PlannedPitStop, StrategyPlan, StrategySimulationRequest
+
+request = StrategySimulationRequest(
+    driver="LEC",
+    decision_lap=18,
+    strategies=(
+        StrategyPlan("undercut", (PlannedPitStop(20, "HARD"),)),
+        StrategyPlan("extend", (PlannedPitStop(27, "HARD"),)),
+    ),
+)
+simulation = platform.strategy_simulator.simulate(key, request)
+
+print(simulation.summaries)
+print(simulation.outcome_samples.head())
+```
+
+This is a retrospective counterfactual: calibration uses the complete race. It simulates every
+car with observed rival strategies, but it does not optimize plans, enforce tire regulations, or
+predict mechanical failures.
+
 Snapshot and upstream refreshes are deliberately separate:
 
 ```python
@@ -182,8 +205,10 @@ It ingests the 2022 Bahrain Grand Prix Race, verifies Charles Leclerc as the win
 core datasets, demonstrates snapshot reuse, and exercises an upstream refresh.
 
 See [architecture](docs/architecture.md), [lap analysis methodology](docs/lap-analysis.md),
-[tire model methodology](docs/tire-model.md), and [schema reference](docs/schemas.md) for the
-platform boundaries, analytical conventions, and normalized units.
+[tire model methodology](docs/tire-model.md),
+[strategy simulator methodology](docs/strategy-simulator.md), and
+[schema reference](docs/schemas.md) for the platform boundaries, analytical conventions, and
+normalized units.
 
 ## Data and trademarks
 
