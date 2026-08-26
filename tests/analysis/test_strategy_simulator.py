@@ -18,6 +18,7 @@ from f1pi.analysis import (
     StrategySimulationRequest,
 )
 from f1pi.analysis.strategy_simulator import calibration as strategy_calibration
+from f1pi.analysis.strategy_simulator import engine as strategy_engine
 from f1pi.analysis.strategy_simulator.calibration import (
     EmpiricalTrafficModel,
     RegressionPaceModel,
@@ -213,18 +214,30 @@ def test_no_safety_car_and_custom_vsc_scenarios_share_one_result() -> None:
     assert vsc_elapsed > green_elapsed
 
 
-def test_custom_safety_car_requires_assumptions_without_session_support() -> None:
+def test_custom_safety_car_requires_assumptions_without_session_support(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     scenario = NeutralizationScenario.custom(
         "unsupported_sc",
         (NeutralizationEvent(NeutralizationKind.SAFETY_CAR, 12, 13),),
     )
 
+    simulation_calls = 0
+    original_simulate = strategy_engine.simulate_strategy
+
+    def count_simulations(*args: object, **kwargs: object) -> object:
+        nonlocal simulation_calls
+        simulation_calls += 1
+        return original_simulate(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(strategy_engine, "simulate_strategy", count_simulations)
     with pytest.raises(InsufficientStrategyDataError, match="custom assumptions"):
         StrategySimulationEngine().simulate(
             StubStrategySession(),
-            _request(scenario),
+            _request(NeutralizationScenario.no_safety_car(), scenario),
             StrategySimulationConfig(iterations=2),
         )
+    assert simulation_calls == 0
 
 
 def test_actual_scenario_is_derived_from_track_status_timeline() -> None:

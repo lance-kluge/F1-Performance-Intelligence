@@ -44,11 +44,18 @@ class StrategySimulationEngine:
         outcome_frames: list[pd.DataFrame] = []
         trace_frames: list[pd.DataFrame] = []
 
-        for scenario in request.scenarios:
-            events = scenario_events(scenario, prepared, request.decision_lap)
-            # Resolve assumptions before expensive simulation so malformed scenario sets fail early.
+        prepared_scenarios = tuple(
+            (
+                scenario,
+                scenario_events(scenario, prepared, request.decision_lap),
+            )
+            for scenario in request.scenarios
+        )
+        for _, events in prepared_scenarios:
             for event in events:
                 models.neutralization.parameters(event.kind, event.assumptions)
+
+        for scenario, events in prepared_scenarios:
             baseline_run = simulate_strategy(
                 prepared,
                 models,
