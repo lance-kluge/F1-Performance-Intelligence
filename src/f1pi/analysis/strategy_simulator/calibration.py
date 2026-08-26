@@ -269,9 +269,14 @@ def calibrate_models(
             raise
         pit_loss = EmpiricalPitLossModel({GREEN: np.array([0.0])}, 0)
         pit_warnings = ("pit_loss_unavailable:no_stops",)
-    traffic, traffic_warnings = _calibrate_traffic(observations, fitted, config)
+    fitted_compound_observations = observations.loc[
+        observations["compound"].isin(supported_compounds)
+    ].copy()
+    traffic, traffic_warnings = _calibrate_traffic(
+        fitted_compound_observations, fitted, config
+    )
     neutralization, neutralization_warnings = _calibrate_neutralization(
-        observations, fitted, pit_loss
+        fitted_compound_observations, fitted, pit_loss
     )
     warnings.extend((*pit_warnings, *traffic_warnings, *neutralization_warnings))
 

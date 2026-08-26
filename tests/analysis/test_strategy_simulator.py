@@ -17,6 +17,7 @@ from f1pi.analysis import (
     StrategySimulationEngine,
     StrategySimulationRequest,
 )
+from f1pi.analysis.strategy_simulator import calibration as strategy_calibration
 from f1pi.analysis.strategy_simulator.calibration import (
     EmpiricalTrafficModel,
     RegressionPaceModel,
@@ -296,6 +297,41 @@ def test_first_post_stop_lap_uses_declared_tire_age(monkeypatch: pytest.MonkeyPa
     )
 
     assert observed_ages == [1.0]
+
+
+def test_secondary_calibrators_only_receive_fitted_compounds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = StubStrategySession()
+    unsupported = session._laps["driver"].eq("DDD") & session._laps["lap_number"].le(3)
+    session._laps.loc[unsupported, "compound"] = "INTERMEDIATE"
+    observed_inputs: list[set[str]] = []
+    original_traffic = strategy_calibration._calibrate_traffic
+    original_neutralization = strategy_calibration._calibrate_neutralization
+
+    def capture_traffic(
+        observations: pd.DataFrame, fitted: object, config: StrategySimulationConfig
+    ) -> object:
+        observed_inputs.append(set(observations["compound"].astype(str)))
+        return original_traffic(observations, fitted, config)  # type: ignore[arg-type]
+
+    def capture_neutralization(
+        observations: pd.DataFrame, fitted: object, pit_loss: object
+    ) -> object:
+        observed_inputs.append(set(observations["compound"].astype(str)))
+        return original_neutralization(  # type: ignore[arg-type]
+            observations, fitted, pit_loss
+        )
+
+    monkeypatch.setattr(strategy_calibration, "_calibrate_traffic", capture_traffic)
+    monkeypatch.setattr(
+        strategy_calibration, "_calibrate_neutralization", capture_neutralization
+    )
+    StrategySimulationEngine().simulate(
+        session, _request(), StrategySimulationConfig(iterations=1)
+    )
+
+    assert observed_inputs == [{"HARD", "SOFT"}, {"HARD", "SOFT"}]
 
 
 def test_rejects_red_flags_non_races_bad_targets_and_invalid_windows() -> None:
