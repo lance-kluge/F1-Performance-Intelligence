@@ -297,7 +297,27 @@ def _initial_states(
         completed = driver_laps.loc[driver_laps["lap_number"].le(decision_lap)]
         if completed.empty:
             continue
-        current = completed.iloc[-1]
+        result = results.loc[results["abbreviation"].astype(str).str.upper().eq(driver)]
+        status = "" if result.empty else str(result.iloc[0].get("status", ""))
+        classified_finisher = _is_classified_finisher(status)
+
+        # FastF1 retains an in-progress, ultimately incomplete lap for many retirements.
+        # A retired car must not make a later counterfactual impossible when its last completed
+        # lap still supplies a valid state at the decision point.
+        state_rows = completed
+        if not classified_finisher:
+            state_rows = completed.loc[
+                completed["lap_end_seconds"].notna()
+                & completed["tire_age_laps"].notna()
+                & completed["compound"].notna()
+                & ~completed["compound"].astype("string").str.strip().isin(["", "UNKNOWN"])
+            ]
+        if state_rows.empty:
+            if classified_finisher:
+                raise InsufficientStrategyDataError(f"initial state is incomplete for {driver}")
+            continue
+
+        current = state_rows.iloc[-1]
         compound = current["compound"]
         if (
             pd.isna(current["lap_end_seconds"])
@@ -306,9 +326,6 @@ def _initial_states(
             or str(compound).strip() in {"", "UNKNOWN"}
         ):
             raise InsufficientStrategyDataError(f"initial state is incomplete for {driver}")
-        result = results.loc[results["abbreviation"].astype(str).str.upper().eq(driver)]
-        status = "" if result.empty else str(result.iloc[0].get("status", ""))
-        classified_finisher = _is_classified_finisher(status)
         states.append(
             InitialCarState(
                 driver=driver,

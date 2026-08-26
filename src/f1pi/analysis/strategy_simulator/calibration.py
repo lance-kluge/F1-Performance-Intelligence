@@ -486,6 +486,5 @@ def _neutralization_pace_rows(
         & observations[list(WEATHER_FEATURES)].notna().all(axis=1)
         & observations["pit_in_time_ns"].isna()
         & observations["pit_out_time_ns"].isna()
-        & observations["is_accurate"].eq(True).fillna(False)
-        & observations["deleted"].ne(True).fillna(False)
+        & ~observations["deleted"].eq(True).fillna(False)
     ].copy()
