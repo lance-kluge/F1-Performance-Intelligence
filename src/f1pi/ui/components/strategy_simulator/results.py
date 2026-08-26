@@ -206,7 +206,7 @@ def _summary_frame(summaries: list[StrategyOutcomeSummary]) -> pd.DataFrame:
             {
                 "Plan": _label(item.strategy),
                 "Expected finish": format_position(item.expected_finish_position),
-                "Median finish": f"P{item.median_finish_position:.0f}",
+                "Median finish": format_position(item.median_finish_position),
                 "Win": format_probability(item.win_probability),
                 "Podium": format_probability(item.podium_probability),
                 "Top 10": format_probability(item.top_ten_probability),
