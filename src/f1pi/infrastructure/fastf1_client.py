@@ -10,11 +10,12 @@ import pandas as pd
 from fastf1._api import SessionNotAvailableError
 from fastf1.core import Session
 from fastf1.exceptions import (
-    InvalidSessionError as FastF1InvalidSessionError,
-)
-from fastf1.exceptions import (
+    DataNotLoadedError,
     NoLapDataError,
     RateLimitExceededError,
+)
+from fastf1.exceptions import (
+    InvalidSessionError as FastF1InvalidSessionError,
 )
 from requests import RequestException
 
@@ -57,11 +58,15 @@ class FastF1Client:
                 weather=options.weather,
                 messages=options.messages,
             )
+            # FastF1 can return from ``Session.load`` without lap data when an
+            # upstream timing source is unavailable. Access it here so callers
+            # receive a stable domain error instead of a later property error.
+            _ = session.laps
         except RateLimitExceededError as error:
             raise UpstreamRateLimitError(str(error)) from error
         except FastF1InvalidSessionError as error:
             raise InvalidSessionError(str(error)) from error
-        except (SessionNotAvailableError, NoLapDataError) as error:
+        except (DataNotLoadedError, SessionNotAvailableError, NoLapDataError) as error:
             raise UpstreamUnavailableError(str(error)) from error
         return session
 
