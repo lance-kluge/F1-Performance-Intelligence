@@ -91,6 +91,7 @@ def prepare_race(
     if request.decision_lap >= race_laps:
         raise InvalidStrategyError("decision_lap must precede the end of the race")
     _validate_target(results, laps, request.driver)
+    _reject_committed_target_stop(laps, request.driver, request.decision_lap)
     _validate_request_windows(request, race_laps)
 
     observations = prepare_observations(
@@ -231,6 +232,16 @@ def _validate_target(results: pd.DataFrame, laps: pd.DataFrame, driver: str) -> 
     status = str(result.iloc[0].get("status", ""))
     if not _is_classified_finisher(status):
         raise InvalidStrategyError("target driver must be a classified finisher")
+
+
+def _reject_committed_target_stop(
+    laps: pd.DataFrame, driver: str, decision_lap: int
+) -> None:
+    decision_rows = laps.loc[
+        laps["driver"].eq(driver) & laps["lap_number"].eq(decision_lap)
+    ]
+    if not decision_rows.empty and decision_rows["pit_in_time_ns"].notna().any():
+        raise InvalidStrategyError("decision_lap cannot be a target pit-in lap")
 
 
 def _validate_request_windows(request: StrategySimulationRequest, race_laps: int) -> None:

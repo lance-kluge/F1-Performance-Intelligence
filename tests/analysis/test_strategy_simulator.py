@@ -348,6 +348,19 @@ def test_rejects_missing_compound_in_initial_state() -> None:
         )
 
 
+def test_rejects_target_stop_committed_on_decision_lap() -> None:
+    request = StrategySimulationRequest(
+        "AAA",
+        10,
+        (StrategyPlan("late", (PlannedPitStop(13, "HARD"),)),),
+    )
+
+    with pytest.raises(InvalidStrategyError, match="target pit-in lap"):
+        StrategySimulationEngine().simulate(
+            StubStrategySession(), request, StrategySimulationConfig(iterations=1)
+        )
+
+
 def test_rejects_red_flags_non_races_bad_targets_and_invalid_windows() -> None:
     with pytest.raises(UnsupportedStrategySessionError, match="red-flag"):
         StrategySimulationEngine().simulate(
