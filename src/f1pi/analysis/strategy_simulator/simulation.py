@@ -166,6 +166,14 @@ def simulate_strategy(
         position_history = position_history[:, :history_index, :]
         elapsed_history = elapsed_history[:, :history_index, :]
         gap_history = gap_history[:, :history_index, :]
+    _apply_chequered_flag(
+        elapsed,
+        completed,
+        np.asarray([state.completed_laps for state in states], dtype=int),
+        maximum_laps,
+        prepared.race_laps,
+        elapsed_history,
+    )
     final_positions, final_gaps = _positions_and_gaps(elapsed, completed)
     return SimulationRun(
         final_positions=final_positions,
@@ -226,6 +234,36 @@ def config_start_lap(prepared: PreparedRace) -> int:
 def _nan_quantile(values: np.ndarray, quantile: float) -> float:
     finite_values = values[np.isfinite(values)]
     return float(np.quantile(finite_values, quantile)) if len(finite_values) else float("nan")
+
+
+def _apply_chequered_flag(
+    elapsed: np.ndarray,
+    completed: np.ndarray,
+    initial_completed: np.ndarray,
+    maximum_laps: np.ndarray,
+    race_laps: int,
+    elapsed_history: np.ndarray,
+) -> None:
+    classified = maximum_laps >= race_laps
+    for iteration in range(elapsed.shape[0]):
+        finish_candidates = np.flatnonzero(classified & (completed[iteration] >= race_laps))
+        if not len(finish_candidates):
+            continue
+        winner = finish_candidates[
+            np.argmin(elapsed[iteration, finish_candidates])
+        ]
+        winner_finish = elapsed[iteration, winner]
+        for driver in np.flatnonzero(classified):
+            crossings = elapsed_history[iteration, :, driver]
+            after_chequer = np.flatnonzero(crossings >= winner_finish)
+            if not len(after_chequer):
+                continue
+            finish_index = int(after_chequer[0])
+            completed[iteration, driver] = min(
+                int(initial_completed[driver]) + finish_index + 1,
+                race_laps,
+            )
+            elapsed[iteration, driver] = crossings[finish_index]
 
 
 def _gaps_by_elapsed(

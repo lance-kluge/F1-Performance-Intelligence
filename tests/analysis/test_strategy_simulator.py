@@ -24,6 +24,7 @@ from f1pi.analysis.strategy_simulator.calibration import (
 )
 from f1pi.analysis.strategy_simulator.preparation import prepare_race, scenario_events
 from f1pi.analysis.strategy_simulator.simulation import (
+    _apply_chequered_flag,
     _compress_field,
     _positions_and_gaps,
 )
@@ -417,6 +418,34 @@ def test_lap_deficit_has_no_seconds_gap() -> None:
     assert positions.tolist() == [[1, 2, 3]]
     assert gaps[0, :2].tolist() == [0.0, 2.0]
     assert np.isnan(gaps[0, 2])
+
+
+def test_slower_car_finishes_at_first_crossing_after_winner() -> None:
+    elapsed = np.array([[1_000.0, 1_170.0]])
+    completed = np.array([[10, 10]])
+    history = np.array(
+        [
+            [
+                [600.0, 650.0],
+                [700.0, 780.0],
+                [800.0, 910.0],
+                [900.0, 1_040.0],
+                [1_000.0, 1_170.0],
+            ]
+        ]
+    )
+
+    _apply_chequered_flag(
+        elapsed,
+        completed,
+        np.array([5, 5]),
+        np.array([10, 10]),
+        10,
+        history,
+    )
+
+    assert completed.tolist() == [[10, 9]]
+    assert elapsed.tolist() == [[1_000.0, 1_040.0]]
 
 
 @pytest.mark.parametrize(
