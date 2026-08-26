@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from f1pi.analysis.models import DegradationMode
-from f1pi.domain.exceptions import LapNotFoundError
+from f1pi.domain.exceptions import LapNotFoundError, UnsupportedStrategySessionError
 from f1pi.domain.models import (
     IngestionResult,
     ScheduledEvent,
@@ -14,7 +14,12 @@ from f1pi.domain.models import (
     SessionKey,
     SessionType,
 )
-from f1pi.ui.analysis_facade import LapAnalysisFacade, TireAnalysisFacade, driver_options
+from f1pi.ui.analysis_facade import (
+    LapAnalysisFacade,
+    StrategyAnalysisFacade,
+    TireAnalysisFacade,
+    driver_options,
+)
 from f1pi.ui.models import LoadedSession
 
 
@@ -100,6 +105,17 @@ def test_facade_rejects_session_without_accurate_laps(loaded_session: LoadedSess
 
     with pytest.raises(LapNotFoundError, match="accurate timed lap"):
         LapAnalysisFacade(platform).load_session(SessionKey(2026, 1, "Q"))
+
+
+def test_strategy_facade_rejects_red_flag_during_setup() -> None:
+    platform = Mock()
+    platform.ingestion.ingest.return_value = IngestionResult("session", "run", False, ())
+    stored = Mock()
+    stored.track_status.return_value = pd.DataFrame({"status": ["1", "5"]})
+    platform.sessions.open.return_value = stored
+
+    with pytest.raises(UnsupportedStrategySessionError, match="red-flag"):
+        StrategyAnalysisFacade(platform).load_setup(SessionKey(2026, 1, "R"))
 
 
 def test_tire_facade_exposes_only_race_and_sprint_sessions() -> None:

@@ -16,7 +16,7 @@ from f1pi.analysis.models import (
     StrategySimulationRequest,
     TireModelConfig,
 )
-from f1pi.domain.exceptions import LapNotFoundError
+from f1pi.domain.exceptions import LapNotFoundError, UnsupportedStrategySessionError
 from f1pi.domain.models import (
     IngestionResult,
     LoadOptions,
@@ -232,6 +232,8 @@ class StrategyAnalysisFacade:
             LoadOptions(telemetry=False, weather=True, messages=False),
         )
         session = self._platform.sessions.open(key)
+        if session.track_status()["status"].astype(str).eq("5").any():
+            raise UnsupportedStrategySessionError("red-flag races are not supported in v1")
         laps = session.laps()
         results = session.results()
         drivers = _classified_strategy_drivers(results, laps)
