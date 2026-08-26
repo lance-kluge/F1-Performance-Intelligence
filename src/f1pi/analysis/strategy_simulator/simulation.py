@@ -82,6 +82,7 @@ def simulate_strategy(
     maximum_laps = np.asarray([state.maximum_laps for state in states], dtype=int)
     compounds = np.asarray([state.compound for state in states], dtype=object)
     tire_ages = np.asarray([state.tire_age_laps for state in states], dtype=float)
+    newly_fitted_tires = np.zeros(driver_count, dtype=bool)
     strategy_by_driver = {driver: prepared.observed_plans[driver] for driver in drivers}
     strategy_by_driver[target_driver] = target_strategy
     stop_maps = {
@@ -102,7 +103,8 @@ def simulate_strategy(
         active_driver = lap_number <= maximum_laps
         if not np.any(active_driver):
             break
-        tire_ages[active_driver] += 1.0
+        tire_ages[active_driver & ~newly_fitted_tires] += 1.0
+        newly_fitted_tires[:] = False
         pace = models.pace.predict(
             lap_number,
             drivers,
@@ -140,6 +142,7 @@ def simulate_strategy(
             elapsed[:, driver_index] += pit_losses
             compounds[driver_index] = stop.compound
             tire_ages[driver_index] = stop.starting_tire_age_laps
+            newly_fitted_tires[driver_index] = True
 
         if (
             event is not None

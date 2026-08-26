@@ -17,7 +17,10 @@ from f1pi.analysis import (
     StrategySimulationEngine,
     StrategySimulationRequest,
 )
-from f1pi.analysis.strategy_simulator.calibration import EmpiricalTrafficModel
+from f1pi.analysis.strategy_simulator.calibration import (
+    EmpiricalTrafficModel,
+    RegressionPaceModel,
+)
 from f1pi.analysis.strategy_simulator.preparation import prepare_race, scenario_events
 from f1pi.analysis.strategy_simulator.simulation import _compress_field
 from f1pi.domain.exceptions import (
@@ -260,6 +263,39 @@ def test_fastf1_lap_down_status_is_a_classified_finisher() -> None:
     )
 
     assert analysis.driver == "AAA"
+
+
+def test_first_post_stop_lap_uses_declared_tire_age(monkeypatch: pytest.MonkeyPatch) -> None:
+    observed_ages: list[float] = []
+    original_predict = RegressionPaceModel.predict
+
+    def capture_predict(
+        self: RegressionPaceModel,
+        lap_number: int,
+        drivers: tuple[str, ...],
+        compounds: np.ndarray,
+        tire_ages: np.ndarray,
+        coefficients: np.ndarray,
+    ) -> np.ndarray:
+        target_index = drivers.index("AAA")
+        if lap_number == 9 and compounds[target_index] == "HARD":
+            observed_ages.append(float(tire_ages[target_index]))
+        return original_predict(
+            self, lap_number, drivers, compounds, tire_ages, coefficients
+        )
+
+    monkeypatch.setattr(RegressionPaceModel, "predict", capture_predict)
+    StrategySimulationEngine().simulate(
+        StubStrategySession(),
+        StrategySimulationRequest(
+            "AAA",
+            5,
+            (StrategyPlan("early", (PlannedPitStop(8, "HARD", 1.0),)),),
+        ),
+        StrategySimulationConfig(iterations=1),
+    )
+
+    assert observed_ages == [1.0]
 
 
 def test_rejects_red_flags_non_races_bad_targets_and_invalid_windows() -> None:
