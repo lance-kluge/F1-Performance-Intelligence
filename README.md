@@ -34,9 +34,8 @@ Run the local Streamlit interface from the repository root:
 streamlit run streamlit_app.py
 ```
 
-The landing experience is intentionally independent of FastF1 and the local data store, so it
-starts without downloading a session. Analysis workspaces load data only after a user asks for a
-specific event and session.
+The application opens directly to Lap analysis. Analysis workspaces load data only after a user
+selects a specific event and session.
 
 In **Lap analysis**, choose a season, race weekend, and completed session. The first load retrieves
 and normalizes FastF1 telemetry; later loads reuse the immutable local snapshot. Each driver can
