@@ -25,6 +25,8 @@ PANEL_COLOR = "#141417"
 TRANSPARENT = "rgba(0,0,0,0)"
 DOMINANCE_THRESHOLD_SECONDS = 0.001
 FALLBACK_DOMINANCE_WINDOW_FRACTION = 0.03
+THROTTLE_COLOR = "#42d6a4"
+BRAKE_COLOR = "#ffb454"
 
 
 def sector_figure(comparison: LapComparison) -> go.Figure:
@@ -311,9 +313,9 @@ def inputs_figure(comparison: LapComparison) -> go.Figure:
         vertical_spacing=0.12,
         row_heights=[0.7, 0.3],
     )
-    for prefix, label, color in (
-        ("lap_a", f"Driver A · {comparison.lap_a.driver}", DRIVER_A_COLOR),
-        ("lap_b", f"Driver B · {comparison.lap_b.driver}", DRIVER_B_COLOR),
+    for prefix, label, dash in (
+        ("lap_a", f"Driver A · {comparison.lap_a.driver}", "solid"),
+        ("lap_b", f"Driver B · {comparison.lap_b.driver}", "dash"),
     ):
         figure.add_trace(
             go.Scatter(
@@ -321,7 +323,7 @@ def inputs_figure(comparison: LapComparison) -> go.Figure:
                 y=telemetry[f"{prefix}_throttle_percent"],
                 mode="lines",
                 name=f"{label} throttle",
-                line={"color": color, "width": 2},
+                line={"color": THROTTLE_COLOR, "width": 2, "dash": dash},
                 customdata=section_labels,
                 hovertemplate=(
                     "%{customdata}<br>%{x:.1f}% of lap<br>"
@@ -336,22 +338,20 @@ def inputs_figure(comparison: LapComparison) -> go.Figure:
             figure.add_trace(
                 go.Scatter(
                     x=progress,
-                    y=brake,
+                    y=brake * 100,
                     mode="lines",
                     name=f"{label} brake",
-                    line={"color": color, "width": 2, "shape": "hv"},
+                    line={"color": BRAKE_COLOR, "width": 2, "shape": "hv", "dash": dash},
                     customdata=section_labels,
                     hovertemplate=(
                         "%{customdata}<br>%{x:.1f}% of lap<br>"
-                        "Brake %{y:.0f}<extra></extra>"
+                        "Brake state %{y:.0f} (0 = off, 100 = on)<extra></extra>"
                     ),
                 ),
                 row=2,
                 col=1,
             )
-    figure.update_yaxes(title_text="Throttle %", range=[-5, 105], row=1, col=1)
-    figure.update_yaxes(title_text="Brake", tickvals=[0, 1], row=2, col=1)
-    return _base_figure(
+    figure = _base_figure(
         figure,
         "Driver inputs",
         "Lap progress",
@@ -361,6 +361,12 @@ def inputs_figure(comparison: LapComparison) -> go.Figure:
         x_ticksuffix="%",
         x_hoverformat=".1f",
     )
+
+    figure.update_yaxes(title_text="Throttle %", range=[-5, 105], row=1, col=1)
+    figure.update_yaxes(
+        title_text="Brake state", tickvals=[0, 100], range=[-5, 105], row=2, col=1
+    )
+    return figure
 
 
 def corner_loss_figure(comparison: LapComparison) -> go.Figure | None:

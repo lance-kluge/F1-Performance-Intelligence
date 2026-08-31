@@ -43,6 +43,11 @@ def render_telemetry(comparison: LapComparison, plot_config: Mapping[str, object
     )
     if comparison.telemetry[["lap_a_brake", "lap_b_brake"]].isna().all().all():
         st.info("Brake channels are unavailable for both selected laps; throttle remains visible.")
+    st.caption(
+        "Green shows throttle; amber shows braking. Driver A uses solid lines and "
+        "Driver B uses dashed lines. Brake is a binary state: 0 means off and 100 "
+        "means on, not measured brake pressure."
+    )
     st.plotly_chart(
         inputs_figure(comparison),
         config=dict(plot_config),
