@@ -176,6 +176,7 @@ def _finding(
     evidence = _evidence(section, direction, kind)
     action = "lost" if kind is FindingKind.LOSS else "recovered"
     phase_text = "" if phase is None else f" in the {phase.kind.value} phase"
+    phase_text = _sector_context(section.sector_numbers) + phase_text
     evidence_text = _evidence_text(evidence, direction, kind, lap_a, lap_b)
     text = (
         f"{_identity(subject, lap_a.driver == lap_b.driver)} {action} "
@@ -192,6 +193,16 @@ def _finding(
         evidence=evidence,
         text=text,
     )
+
+
+def _sector_context(sector_numbers: tuple[int, ...]) -> str:
+    """Locate a section without attributing its full delta to a single sector."""
+    sectors = tuple(dict.fromkeys(sector_numbers))
+    if not sectors:
+        return ""
+    if len(sectors) == 1:
+        return f" (Sector {sectors[0]})"
+    return f" (spanning Sectors {', '.join(str(sector) for sector in sectors)})"
 
 
 def _evidence(

@@ -502,3 +502,31 @@ def test_tied_lap_explanation_ranks_local_differences_by_absolute_magnitude() ->
 def test_segmentation_config_rejects_invalid_values(options: dict[str, float]) -> None:
     with pytest.raises(ValueError):
         SegmentationConfig(**options)
+
+
+@pytest.mark.parametrize("sector_numbers, location", [
+    ((2,), "(Sector 2)"),
+    ((1, 2), "(spanning Sectors 1, 2)"),
+    ((3, 1), "(spanning Sectors 3, 1)"),
+    ((), ""),
+])
+def test_findings_locate_turns_in_timing_sectors(sector_numbers, location) -> None:
+    from f1pi.analysis.performance_summary import DeterministicSummaryNarrativeProvider
+
+    lap_a, lap_b = _lap("NOR", 90.0), _lap("VER", 90.4)
+    sections, quality = analyze_performance(
+        _telemetry(), _corners(), lap_a, lap_b, SegmentationConfig()
+    )
+    corner = next(s for s in sections if s.kind is SectionKind.CORNER_COMPLEX)
+    corner = replace(corner, sector_numbers=sector_numbers)
+    summary, explanation = summarize_performance(
+        lap_a, lap_b,
+        (SectorComparison(1, 30, 30.1, .1), SectorComparison(2, 30, 30.1, .1),
+         SectorComparison(3, 30, 30.2, .2)),
+        (corner,), quality, SegmentationConfig(), DeterministicSummaryNarrativeProvider(),
+    )
+    assert f"through {corner.label}{' ' + location if location else ''}" in explanation.text
+    assert summary.findings[0].section_id == corner.section_id
+    assert summary.findings[0].time_seconds == corner.magnitude_seconds
+    if not sector_numbers:
+        assert "Sector" not in explanation.text
