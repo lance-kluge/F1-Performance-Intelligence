@@ -9,7 +9,7 @@ from typing import cast
 import streamlit as st
 
 from f1pi.analysis.models import LapComparison, LapSelection
-from f1pi.domain.models import ScheduledEvent, ScheduledSession, SessionKey
+from f1pi.domain.models import ScheduledEvent, ScheduledSession, SessionKey, SessionType
 from f1pi.ui.analysis_facade import AnalysisFacade
 from f1pi.ui.components.layout import render_footer, render_wordmark
 from f1pi.ui.components.results import render_results
@@ -68,7 +68,7 @@ def _render_session_selection() -> tuple[SessionKey, ScheduledEvent, ScheduledSe
             "Season",
             years,
             key="f1pi_season",
-            on_change=_clear_loaded_state,
+            on_change=_clear_event_selection,
         )
     try:
         with st.spinner("Loading the season schedule…"):
@@ -86,12 +86,13 @@ def _render_session_selection() -> tuple[SessionKey, ScheduledEvent, ScheduledSe
             events,
             format_func=_event_label,
             key="f1pi_event",
-            on_change=_clear_loaded_state,
+            on_change=_clear_session_selection,
         )
     with session_column:
         scheduled_session = st.selectbox(
             "Session",
             event.sessions,
+            index=_preferred_session_index(event.sessions),
             format_func=_session_label,
             key="f1pi_session",
             on_change=_clear_loaded_state,
@@ -233,6 +234,25 @@ def _render_error(error: Exception) -> None:
     logger.exception("Lap analysis operation failed")
     message = user_error(error)
     st.error(f"**{message.title}**\n\n{message.detail}")
+
+
+def _preferred_session_index(sessions: tuple[ScheduledSession, ...]) -> int:
+    """Prefer completed Race, then Qualifying, then the first available session."""
+    for preferred in (SessionType.RACE, SessionType.QUALIFYING):
+        for index, session in enumerate(sessions):
+            if session.session_type == preferred:
+                return index
+    return 0
+
+
+def _clear_event_selection() -> None:
+    st.session_state.pop("f1pi_event", None)
+    _clear_session_selection()
+
+
+def _clear_session_selection() -> None:
+    st.session_state.pop("f1pi_session", None)
+    _clear_loaded_state()
 
 
 def _clear_loaded_state() -> None:

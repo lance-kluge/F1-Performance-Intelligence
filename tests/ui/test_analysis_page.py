@@ -103,3 +103,50 @@ def test_state_envelopes_reject_another_session(loaded_session) -> None:
 
     assert lap_analysis._loaded_session_from_state(loaded_state, other_key) is None
     assert lap_analysis._comparison_from_state(comparison_state, other_key) is None
+
+
+def test_session_defaults_and_explicit_choices_survive_reruns(monkeypatch) -> None:
+    from dataclasses import replace
+    from datetime import UTC, datetime
+
+    from f1pi.domain.models import ScheduledEvent, ScheduledSession
+
+    practice = ScheduledSession("FP1", "Practice 1", datetime(2026, 3, 6, tzinfo=UTC))
+    qualifying = ScheduledSession("Q", "Qualifying", datetime(2026, 3, 7, tzinfo=UTC))
+    race = ScheduledSession("R", "Race", datetime(2026, 3, 8, tzinfo=UTC))
+    events = (
+        ScheduledEvent(2026, 1, "Completed weekend", "Australia", "Melbourne",
+                       (practice, qualifying, race)),
+        ScheduledEvent(2026, 2, "Qualifying completed", "China", "Shanghai",
+                       (practice, qualifying)),
+        ScheduledEvent(2026, 3, "Practice completed", "Japan", "Suzuka", (practice,)),
+    )
+
+    def session_app():
+        import streamlit as st
+
+        from f1pi.ui.pages.lap_analysis import _render_session_selection
+
+        _render_session_selection()
+        st.button("Rerun")
+
+    monkeypatch.setattr(lap_analysis, "available_events", lambda year: tuple(
+        replace(event, year=year) for event in events
+    ))
+    app = AppTest.from_function(session_app).run()
+    assert not app.exception
+    assert app.selectbox(key="f1pi_session").value.session_type == "R"
+    app.selectbox(key="f1pi_session").select_index(0).run()
+    app.button[0].click().run()
+    assert app.selectbox(key="f1pi_session").value.session_type == "FP1"
+    app.session_state[lap_analysis.LOADED_SESSION_KEY] = object()
+    app.session_state[lap_analysis.COMPARISON_KEY] = object()
+    app.selectbox(key="f1pi_event").select_index(1).run()
+    assert app.selectbox(key="f1pi_session").value.session_type == "Q"
+    assert lap_analysis.LOADED_SESSION_KEY not in app.session_state
+    assert lap_analysis.COMPARISON_KEY not in app.session_state
+    app.selectbox(key="f1pi_event").select_index(2).run()
+    assert app.selectbox(key="f1pi_session").value.session_type == "FP1"
+    app.selectbox(key="f1pi_season").select_index(1).run()
+    assert app.selectbox(key="f1pi_session").value.session_type == "R"
+    assert not app.exception
