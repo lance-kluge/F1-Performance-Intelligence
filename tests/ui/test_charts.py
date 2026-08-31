@@ -43,6 +43,14 @@ def test_core_figures_preserve_comparison_contract(comparison: LapComparison) ->
     assert "Turn" in speed.data[0].customdata[1]
     inputs = inputs_figure(comparison)
     assert len(inputs.data) == 4
+    assert inputs.data[0].line.color == inputs.data[2].line.color
+    assert inputs.data[1].line.color == inputs.data[3].line.color
+    assert inputs.data[0].line.color != inputs.data[1].line.color
+    assert [trace.line.dash for trace in inputs.data] == ["solid", "solid", "dash", "dash"]
+    assert list(inputs.layout.yaxis2.tickvals) == [0, 100]
+    assert inputs.layout.yaxis.title.text == "Throttle %"
+    assert inputs.layout.yaxis2.title.text == "Brake state"
+    assert list(inputs.data[1].y) == [100, 0, 100, 0, 100, 0]
     assert inputs.layout.xaxis.title.text == "Lap progress"
     assert inputs.layout.xaxis.ticksuffix == "%"
     delta = delta_figure(comparison)
