@@ -7,6 +7,7 @@ import streamlit as st
 from f1pi.analysis.models import Confidence, LapComparison
 from f1pi.ui.components.results.insights import render_loss_analysis
 from f1pi.ui.components.results.overview import render_overview
+from f1pi.ui.components.results.straight_speed import render_straight_speed
 from f1pi.ui.components.results.summary import render_summary
 from f1pi.ui.components.results.telemetry import render_telemetry
 from f1pi.ui.models import LoadedSession
@@ -45,6 +46,7 @@ def render_results(session: LoadedSession, comparison: LapComparison) -> None:
         render_telemetry(comparison, PLOT_CONFIG)
     with losses:
         render_loss_analysis(comparison, PLOT_CONFIG)
+        render_straight_speed(comparison)
 
 
 def _render_analysis_quality(comparison: LapComparison) -> None:
