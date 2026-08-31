@@ -174,12 +174,16 @@ def _finding(
     if phase is not None and abs(phase.delta_seconds) < config.finding_minimum_seconds:
         phase = None
     evidence = _evidence(section, direction, kind)
-    action = "lost" if kind is FindingKind.LOSS else "recovered"
+    identity_a, identity_b = _identities(lap_a, lap_b)
+    winner, loser = (
+        (identity_a, identity_b) if section.delta_seconds > 0 else (identity_b, identity_a)
+    )
     phase_text = "" if phase is None else f" in the {phase.kind.value} phase"
     evidence_text = _evidence_text(evidence, direction, kind, lap_a, lap_b)
     text = (
-        f"{_identity(subject, lap_a.driver == lap_b.driver)} {action} "
-        f"{time_seconds:.3f} seconds through {section.label}{phase_text}{evidence_text}."
+        f"{winner} gained "
+        f"{time_seconds:.3f} seconds on {loser} through "
+        f"{section.label}{phase_text}{evidence_text}."
     )
     return SummaryFinding(
         kind=kind,
@@ -349,10 +353,13 @@ def _legacy_explanation(
     identity_a, identity_b = _identities(lap_a, lap_b)
     legacy_text = summary.narrative
     if key_corner is None and largest_sector is not None:
+        winner, loser = (
+            (identity_a, identity_b)
+            if (largest_sector.delta_seconds or 0.0) > 0 else (identity_b, identity_a)
+        )
         legacy_text += (
-            f" The largest sector loss was approximately "
-            f"{abs(largest_sector.delta_seconds or 0.0):.3f} seconds in "
-            f"Sector {largest_sector.sector}."
+            f" {winner} gained {abs(largest_sector.delta_seconds or 0.0):.3f} seconds "
+            f"on {loser} in Sector {largest_sector.sector}."
         )
     return LapExplanation(
         faster_driver=None if abs(delta) <= 1e-12 else (identity_a if delta > 0 else identity_b),
