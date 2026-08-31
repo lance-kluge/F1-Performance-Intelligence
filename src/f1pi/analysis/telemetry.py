@@ -90,7 +90,7 @@ def synchronize_traces(
     synchronized["time_delta_seconds"] = (
         synchronized["lap_b_elapsed_seconds"] - synchronized["lap_a_elapsed_seconds"]
     )
-    synchronized["local_time_delta_seconds"] = _local_delta_change(
+    synchronized["local_time_delta_seconds"] = local_delta_change(
         synchronized["time_delta_seconds"].to_numpy(dtype=float),
         config.local_dominance_window_fraction,
     )
@@ -287,10 +287,12 @@ def _spatial_step_interpolate(
     return output
 
 
-def _local_delta_change(
+def local_delta_change(
     cumulative_delta: NDArray[np.float64], window_fraction: float
 ) -> NDArray[np.float64]:
     """Return time gained across a centered, finish-line-aware lap window."""
+    if len(cumulative_delta) < 2:
+        return np.zeros(len(cumulative_delta), dtype=float)
     half_window = max(1, round(len(cumulative_delta) * window_fraction / 2))
     last = len(cumulative_delta) - 1
     output = np.empty(len(cumulative_delta), dtype=float)

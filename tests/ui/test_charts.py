@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -30,9 +31,13 @@ def test_core_figures_preserve_comparison_contract(comparison: LapComparison) ->
     assert "NOR: 30.000s · VER: 30.050s" in sectors.data[0].customdata[0]
     assert not sectors.layout.annotations
     track = track_figure(comparison)
-    assert len(track.data) == 5
+    assert len(track.data) == 8
     assert list(track.data[-1].text) == ["T3", "T9"]
-    assert all(trace.hoverinfo == "skip" for trace in track.data)
+    assert track.layout.hovermode == "closest"
+    assert track.data[2].customdata[0].endswith("Local window gain: NOR by 0.010s")
+    assert "VER by 0.020s" in track.data[4].customdata[0]
+    assert "Sector 2" in track.data[4].customdata[0]
+    assert track.data[0].hoverinfo == "skip"
     assert track.data[-1].customdata is None
     speed = speed_figure(comparison)
     assert len(speed.data) == 2
@@ -98,7 +103,7 @@ def test_figures_handle_missing_optional_channels(comparison: LapComparison) -> 
     object.__setattr__(comparison, "corners", ())
 
     assert len(inputs_figure(comparison).data) == 2
-    assert len(track_figure(comparison).data) == 4
+    assert len(track_figure(comparison).data) == 7
     assert corner_loss_figure(comparison) is None
 
 
@@ -113,3 +118,139 @@ def test_corner_losses_follow_the_slower_driver(comparison: LapComparison) -> No
         "Straight · Turn 3 → Turn 9",
         0.06,
     )
+
+
+def test_track_hover_distinguishes_wrapping_section_and_local_gain(comparison) -> None:
+    from dataclasses import replace
+
+    from f1pi.analysis.models import Confidence, PerformanceSectionComparison, SectionKind
+
+    section = PerformanceSectionComparison(
+        section_id="straight:finish", kind=SectionKind.STRAIGHT,
+        label="Start/finish straight", start_distance_metres=800,
+        end_distance_metres=200, wraps_finish_line=True, sector_numbers=(3, 1),
+        delta_seconds=-0.123, advantaged_driver="VER", magnitude_seconds=.123,
+        confidence=Confidence.HIGH,
+    )
+    comparison = replace(comparison, sections=(section,))
+    comparison.telemetry.loc[0, "local_time_delta_seconds"] = 0
+    hover = tuple(value for trace in track_figure(comparison).data
+                  for value in (trace.customdata or ()))
+    assert "Within 0.001s" in hover[0]
+    assert "Whole section gain: VER by 0.123s" in hover[0]
+    assert "Whole section gain: VER by 0.123s" in hover[-1]
+    assert any("40.0% of lap" in value and "Whole section" not in value for value in hover)
+    comparison = replace(comparison, lap_b=replace(comparison.lap_b, driver="NOR"))
+    assert "NOR lap 8 by 0.123s" in track_figure(comparison).data[2].customdata[0]
+    comparison.telemetry.drop(columns=["local_time_delta_seconds"], inplace=True)
+    assert "Local window gain: NOR lap 7 by 0.230s" in (
+        track_figure(comparison).data[2].customdata[0]
+    )
+
+
+@pytest.mark.parametrize(
+    "delta, expected, color, shares",
+    [
+        (0.001, "Within 0.001s", "#6f6f74", (0, 0, 100)),
+        (0.0011, "Within 0.001s", "#6f6f74", (0, 0, 100)),
+        (-0.0011, "Within 0.001s", "#6f6f74", (0, 0, 100)),
+        (0.00149, "Within 0.001s", "#6f6f74", (0, 0, 100)),
+        (0.00151, "NOR by 0.002s", "#f5f3ed", (100, 0, 0)),
+        (-0.00151, "VER by 0.002s", "#ff4f47", (0, 100, 0)),
+    ],
+)
+def test_track_neutral_threshold_matches_displayed_precision(
+    comparison: LapComparison, delta: float, expected: str, color: str, shares: tuple[int, ...]
+) -> None:
+    comparison.telemetry["local_time_delta_seconds"] = delta
+    track = track_figure(comparison)
+    assert track.data[1].line.color == color
+    assert all(f"Local window gain: {expected}" in value for value in track.data[2].customdata)
+    assert dominance_shares(comparison) == shares
+
+
+@pytest.mark.parametrize("split", [False, True])
+def test_track_hover_includes_terminal_endpoint_without_overlapping_sections(
+    comparison: LapComparison, split: bool
+) -> None:
+    from dataclasses import replace
+
+    from f1pi.analysis.models import Confidence, PerformanceSectionComparison, SectionKind
+
+    terminal = PerformanceSectionComparison(
+        section_id="unsegmented:lap",
+        kind=SectionKind.UNSEGMENTED,
+        label="Full lap",
+        start_distance_metres=0.0,
+        end_distance_metres=1000.0,
+        wraps_finish_line=False,
+        sector_numbers=(1, 2, 3),
+        delta_seconds=0.4,
+        advantaged_driver="NOR",
+        magnitude_seconds=0.4,
+        confidence=Confidence.LOW,
+    )
+    sections = (terminal,)
+    if split:
+        sections = (
+            replace(terminal, section_id="first", label="First section", end_distance_metres=400),
+            replace(terminal, label="Terminal section", start_distance_metres=400),
+        )
+    figure = track_figure(replace(comparison, sections=sections))
+    hover = [value for trace in figure.data for value in (trace.customdata or ())]
+    endpoint = [value for value in hover if "100.0% of lap" in value]
+    assert endpoint
+    assert all("Whole section gain: NOR by 0.400s" in value for value in endpoint)
+    if split:
+        boundary = [value for value in hover if "40.0% of lap" in value]
+        assert boundary
+        assert all(value.startswith("Terminal section") for value in boundary)
+
+
+def test_track_transitions_have_one_hover_target_per_sample(comparison: LapComparison) -> None:
+    comparison.telemetry["local_time_delta_seconds"] = [0.01, -0.02, 0, 0.03, -0.04, 0]
+    figure = track_figure(comparison)
+    lines = [trace for trace in figure.data if trace.mode == "lines"][1:]
+    targets = [trace for trace in figure.data if trace.customdata is not None]
+    assert len(lines) == len(targets) == 6
+    expected_gain = {"1": "NOR by", "-1": "VER by", "0": "Within 0.001s"}
+    samples = []
+    for index, (line, target) in enumerate(zip(lines, targets, strict=True)):
+        assert line.hoverinfo == "skip"
+        assert line.customdata is None
+        assert target.mode == "markers"
+        assert target.legendgroup == line.legendgroup
+        assert target.marker.color == line.line.color
+        assert len(target.customdata) == 1
+        assert f"Local window gain: {expected_gain[target.legendgroup]}" in target.customdata[0]
+        assert len(line.x) == (1 if index == 0 else 2)
+        if index:
+            assert (line.x[0], line.y[0]) == (lines[index - 1].x[-1], lines[index - 1].y[-1])
+        samples.extend(zip(target.x, target.y, strict=True))
+    assert samples == list(
+        zip(comparison.telemetry.lap_a_x, comparison.telemetry.lap_a_y, strict=True)
+    )
+
+
+@pytest.mark.parametrize("samples, expected", [(2, 0.8), (6, 0.16), (101, 0.016)])
+@pytest.mark.parametrize("direction", [-1, 1])
+def test_legacy_hover_uses_full_window_at_both_lap_endpoints(
+    comparison: LapComparison, samples: int, expected: float, direction: int
+) -> None:
+    from dataclasses import replace
+
+    from f1pi.ui.charts import _local_delta_seconds
+
+    telemetry = pd.DataFrame({"time_delta_seconds": 7.0 + direction * np.linspace(0, 0.4, samples)})
+    local = _local_delta_seconds(replace(comparison, telemetry=telemetry))
+    assert local == pytest.approx(np.full(samples, direction * expected))
+
+
+def test_legacy_hover_wraps_uneven_gains_at_finish(comparison: LapComparison) -> None:
+    comparison.telemetry.drop(columns=["local_time_delta_seconds"], inplace=True)
+    figure = track_figure(comparison)
+    hover = [value for trace in figure.data for value in (trace.customdata or ())]
+    expected = ["0.230s", "0.080s", "0.110s", "0.140s", "0.240s", "0.230s"]
+    assert len(hover) == len(expected)
+    for detail, gain in zip(hover, expected, strict=True):
+        assert f"Local window gain: NOR by {gain}" in detail

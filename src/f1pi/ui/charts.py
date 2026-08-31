@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from html import escape
 from typing import cast
 
 import numpy as np
@@ -11,6 +12,7 @@ from numpy.typing import NDArray
 from plotly.subplots import make_subplots
 
 from f1pi.analysis.models import LapComparison, SectorComparison, StraightComparison
+from f1pi.analysis.telemetry import local_delta_change
 from f1pi.ui.formatting import MEASUREMENT_DECIMALS, MEASUREMENT_TICK_FORMAT
 from f1pi.ui.gain_labels import gain_label
 
@@ -108,6 +110,7 @@ def track_figure(comparison: LapComparison) -> go.Figure:
     )
     local_delta = _local_delta_seconds(comparison)
     classes = _dominance_classes(local_delta)
+    hover_data = _track_hover_data(comparison, local_delta)
     legend_seen: set[int] = set()
     for start, end, dominance in _dominance_runs(classes):
         color, name = _dominance_style(comparison, dominance)
@@ -124,6 +127,21 @@ def track_figure(comparison: LapComparison) -> go.Figure:
                 showlegend=show_legend,
                 line={"color": color, "width": 5},
                 hoverinfo="skip",
+            )
+        )
+        # The preceding point only connects the line; its hover belongs to its own run.
+        hover_start = start if classes[start] == dominance else start + 1
+        figure.add_trace(
+            go.Scatter(
+                x=telemetry["lap_a_x"].iloc[hover_start : end + 1],
+                y=telemetry["lap_a_y"].iloc[hover_start : end + 1],
+                mode="markers",
+                name=name,
+                legendgroup=str(dominance),
+                showlegend=False,
+                marker={"color": color, "size": 8, "opacity": 0},
+                customdata=hover_data[hover_start : end + 1],
+                hovertemplate="%{customdata}<extra></extra>",
             )
         )
     if comparison.corners:
@@ -156,7 +174,60 @@ def track_figure(comparison: LapComparison) -> go.Figure:
         )
     figure.update_xaxes(visible=False)
     figure.update_yaxes(visible=False, scaleanchor="x", scaleratio=1)
-    return _base_figure(figure, "Track dominance", None, None, height=520)
+    figure = _base_figure(figure, "Track dominance", None, None, height=520)
+    figure.update_layout(hovermode="closest", hoverdistance=24)
+    return figure
+
+
+def _track_hover_data(
+    comparison: LapComparison, local_delta: NDArray[np.float64]
+) -> tuple[str, ...]:
+    """Keep full-section timing separate from the rolling-window line colors."""
+    telemetry = comparison.telemetry
+    labels = _section_labels(comparison)
+    progress = _lap_progress(comparison)
+    same_driver = comparison.lap_a.driver == comparison.lap_b.driver
+    identities = tuple(
+        escape(f"{lap.driver} lap {lap.lap_number}" if same_driver else lap.driver)
+        for lap in (comparison.lap_a, comparison.lap_b)
+    )
+
+    def advantage(delta: float) -> str:
+        if not np.isfinite(delta):
+            return "Timing unavailable"
+        delta = float(np.round(delta, MEASUREMENT_DECIMALS))
+        if abs(delta) <= DOMINANCE_THRESHOLD_SECONDS:
+            return "Within 0.001s"
+        driver = identities[0 if delta > 0 else 1]
+        return f"{driver} by {abs(delta):.{MEASUREMENT_DECIMALS}f}s"
+
+    output: list[str] = []
+    lap_length = float(telemetry["distance_metres"].iloc[-1])
+    for index, distance in enumerate(telemetry["distance_metres"]):
+        section = next((
+            section for section in comparison.sections
+            if (
+                (distance >= section.start_distance_metres or
+                 distance < section.end_distance_metres)
+                if section.wraps_finish_line else
+                section.start_distance_metres <= distance
+                and (
+                    distance < section.end_distance_metres
+                    or distance == section.end_distance_metres == lap_length
+                )
+            )
+        ), None)
+        sector = float(telemetry["sector"].iloc[index])
+        sector_label = f"Sector {sector:.0f}" if np.isfinite(sector) else "Sector unavailable"
+        label = section.label if section is not None else labels[index]
+        detail = (
+            f"{escape(label)} · {sector_label}<br>{progress[index]:.1f}% of lap"
+            f"<br>Local window gain: {advantage(float(local_delta[index]))}"
+        )
+        if section is not None:
+            detail += f"<br>Whole section gain: {advantage(section.delta_seconds)}"
+        output.append(detail)
+    return tuple(output)
 
 
 def delta_figure(comparison: LapComparison) -> go.Figure:
@@ -400,14 +471,11 @@ def _local_delta_seconds(comparison: LapComparison) -> NDArray[np.float64]:
     cumulative = cast(
         NDArray[np.float64], telemetry["time_delta_seconds"].to_numpy(dtype=float)
     )
-    half_window = max(1, round(len(cumulative) * FALLBACK_DOMINANCE_WINDOW_FRACTION / 2))
-    indices = np.arange(len(cumulative))
-    before = np.maximum(0, indices - half_window)
-    after = np.minimum(len(cumulative) - 1, indices + half_window)
-    return cumulative[after] - cumulative[before]
+    return local_delta_change(cumulative, FALLBACK_DOMINANCE_WINDOW_FRACTION)
 
 
 def _dominance_classes(local_delta: NDArray[np.float64]) -> NDArray[np.int64]:
+    local_delta = np.round(local_delta, MEASUREMENT_DECIMALS)
     return cast(
         NDArray[np.int64],
         np.where(
