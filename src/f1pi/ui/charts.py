@@ -186,6 +186,7 @@ def _track_hover_data(
         return f"{driver} by {abs(delta):.{MEASUREMENT_DECIMALS}f}s"
 
     output: list[str] = []
+    lap_length = float(telemetry["distance_metres"].iloc[-1])
     for index, distance in enumerate(telemetry["distance_metres"]):
         section = next((
             section for section in comparison.sections
@@ -193,7 +194,11 @@ def _track_hover_data(
                 (distance >= section.start_distance_metres or
                  distance < section.end_distance_metres)
                 if section.wraps_finish_line else
-                section.start_distance_metres <= distance < section.end_distance_metres
+                section.start_distance_metres <= distance
+                and (
+                    distance < section.end_distance_metres
+                    or distance == section.end_distance_metres == lap_length
+                )
             )
         ), None)
         sector = float(telemetry["sector"].iloc[index])

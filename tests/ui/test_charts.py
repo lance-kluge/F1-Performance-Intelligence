@@ -166,3 +166,41 @@ def test_track_neutral_threshold_matches_displayed_precision(
     assert track.data[1].line.color == color
     assert all(f"Local window gain: {expected}" in value for value in track.data[1].customdata)
     assert dominance_shares(comparison) == shares
+
+
+@pytest.mark.parametrize("split", [False, True])
+def test_track_hover_includes_terminal_endpoint_without_overlapping_sections(
+    comparison: LapComparison, split: bool
+) -> None:
+    from dataclasses import replace
+
+    from f1pi.analysis.models import Confidence, PerformanceSectionComparison, SectionKind
+
+    terminal = PerformanceSectionComparison(
+        section_id="unsegmented:lap",
+        kind=SectionKind.UNSEGMENTED,
+        label="Full lap",
+        start_distance_metres=0.0,
+        end_distance_metres=1000.0,
+        wraps_finish_line=False,
+        sector_numbers=(1, 2, 3),
+        delta_seconds=0.4,
+        advantaged_driver="NOR",
+        magnitude_seconds=0.4,
+        confidence=Confidence.LOW,
+    )
+    sections = (terminal,)
+    if split:
+        sections = (
+            replace(terminal, section_id="first", label="First section", end_distance_metres=400),
+            replace(terminal, label="Terminal section", start_distance_metres=400),
+        )
+    figure = track_figure(replace(comparison, sections=sections))
+    hover = [value for trace in figure.data for value in (trace.customdata or ())]
+    endpoint = [value for value in hover if "100.0% of lap" in value]
+    assert endpoint
+    assert all("Whole section gain: NOR by 0.400s" in value for value in endpoint)
+    if split:
+        boundary = [value for value in hover if "40.0% of lap" in value]
+        assert boundary
+        assert all(value.startswith("Terminal section") for value in boundary)
