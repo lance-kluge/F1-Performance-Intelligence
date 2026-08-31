@@ -30,12 +30,12 @@ def test_core_figures_preserve_comparison_contract(comparison: LapComparison) ->
     assert "NOR: 30.000s · VER: 30.050s" in sectors.data[0].customdata[0]
     assert not sectors.layout.annotations
     track = track_figure(comparison)
-    assert len(track.data) == 5
+    assert len(track.data) == 8
     assert list(track.data[-1].text) == ["T3", "T9"]
     assert track.layout.hovermode == "closest"
-    assert track.data[1].customdata[0].endswith("Local window gain: NOR by 0.010s")
-    assert "VER by 0.020s" in track.data[2].customdata[1]
-    assert "Sector 2" in track.data[2].customdata[1]
+    assert track.data[2].customdata[0].endswith("Local window gain: NOR by 0.010s")
+    assert "VER by 0.020s" in track.data[4].customdata[0]
+    assert "Sector 2" in track.data[4].customdata[0]
     assert track.data[0].hoverinfo == "skip"
     assert track.data[-1].customdata is None
     speed = speed_figure(comparison)
@@ -102,7 +102,7 @@ def test_figures_handle_missing_optional_channels(comparison: LapComparison) -> 
     object.__setattr__(comparison, "corners", ())
 
     assert len(inputs_figure(comparison).data) == 2
-    assert len(track_figure(comparison).data) == 4
+    assert len(track_figure(comparison).data) == 7
     assert corner_loss_figure(comparison) is None
 
 
@@ -140,10 +140,10 @@ def test_track_hover_distinguishes_wrapping_section_and_local_gain(comparison) -
     assert "Whole section gain: VER by 0.123s" in hover[-1]
     assert any("40.0% of lap" in value and "Whole section" not in value for value in hover)
     comparison = replace(comparison, lap_b=replace(comparison.lap_b, driver="NOR"))
-    assert "NOR lap 8 by 0.123s" in track_figure(comparison).data[1].customdata[0]
+    assert "NOR lap 8 by 0.123s" in track_figure(comparison).data[2].customdata[0]
     comparison.telemetry.drop(columns=["local_time_delta_seconds"], inplace=True)
     assert "Local window gain: NOR lap 7 by 0.050s" in (
-        track_figure(comparison).data[1].customdata[0]
+        track_figure(comparison).data[2].customdata[0]
     )
 
 
@@ -164,7 +164,7 @@ def test_track_neutral_threshold_matches_displayed_precision(
     comparison.telemetry["local_time_delta_seconds"] = delta
     track = track_figure(comparison)
     assert track.data[1].line.color == color
-    assert all(f"Local window gain: {expected}" in value for value in track.data[1].customdata)
+    assert all(f"Local window gain: {expected}" in value for value in track.data[2].customdata)
     assert dominance_shares(comparison) == shares
 
 
@@ -204,3 +204,28 @@ def test_track_hover_includes_terminal_endpoint_without_overlapping_sections(
         boundary = [value for value in hover if "40.0% of lap" in value]
         assert boundary
         assert all(value.startswith("Terminal section") for value in boundary)
+
+
+def test_track_transitions_have_one_hover_target_per_sample(comparison: LapComparison) -> None:
+    comparison.telemetry["local_time_delta_seconds"] = [0.01, -0.02, 0, 0.03, -0.04, 0]
+    figure = track_figure(comparison)
+    lines = [trace for trace in figure.data if trace.mode == "lines"][1:]
+    targets = [trace for trace in figure.data if trace.customdata is not None]
+    assert len(lines) == len(targets) == 6
+    expected_gain = {"1": "NOR by", "-1": "VER by", "0": "Within 0.001s"}
+    samples = []
+    for index, (line, target) in enumerate(zip(lines, targets, strict=True)):
+        assert line.hoverinfo == "skip"
+        assert line.customdata is None
+        assert target.mode == "markers"
+        assert target.legendgroup == line.legendgroup
+        assert target.marker.color == line.line.color
+        assert len(target.customdata) == 1
+        assert f"Local window gain: {expected_gain[target.legendgroup]}" in target.customdata[0]
+        assert len(line.x) == (1 if index == 0 else 2)
+        if index:
+            assert (line.x[0], line.y[0]) == (lines[index - 1].x[-1], lines[index - 1].y[-1])
+        samples.extend(zip(target.x, target.y, strict=True))
+    assert samples == list(
+        zip(comparison.telemetry.lap_a_x, comparison.telemetry.lap_a_y, strict=True)
+    )

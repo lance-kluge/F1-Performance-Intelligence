@@ -124,7 +124,21 @@ def track_figure(comparison: LapComparison) -> go.Figure:
                 legendrank={1: 10, -1: 20, 0: 30}[dominance],
                 showlegend=show_legend,
                 line={"color": color, "width": 5},
-                customdata=hover_data[start : end + 1],
+                hoverinfo="skip",
+            )
+        )
+        # The preceding point only connects the line; its hover belongs to its own run.
+        hover_start = start if classes[start] == dominance else start + 1
+        figure.add_trace(
+            go.Scatter(
+                x=telemetry["lap_a_x"].iloc[hover_start : end + 1],
+                y=telemetry["lap_a_y"].iloc[hover_start : end + 1],
+                mode="markers",
+                name=name,
+                legendgroup=str(dominance),
+                showlegend=False,
+                marker={"color": color, "size": 8, "opacity": 0},
+                customdata=hover_data[hover_start : end + 1],
                 hovertemplate="%{customdata}<extra></extra>",
             )
         )
