@@ -67,6 +67,16 @@ throttle events; full-throttle recovery; and minimum gear. Straight metrics incl
 average, and maximum speed. Optional channels produce nullable metrics and quality warnings rather
 than failing an otherwise valid timing comparison.
 
+## Straight-line observations
+
+The UI compares measured entry and exit speeds for every straight with finite metrics for both
+laps. It counts exit-speed advantages of at least 1 km/h separately for each selected lap and
+shows the lower of section and overall analysis confidence. The exit is the detected section
+boundary, not an official speed trap or necessarily the maximum speed. Entry speeds help readers
+identify advantages carried from a preceding corner. Missing metrics do not produce observations.
+The view lists possible explanations to investigate and does not infer engine power or downforce.
+
+
 ## Automated summary contract
 
 `ComparisonSummary` contains a headline, ranked structured findings, and narrative text. Findings
