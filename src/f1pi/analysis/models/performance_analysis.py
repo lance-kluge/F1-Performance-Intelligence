@@ -132,6 +132,7 @@ class SummaryFinding:
     confidence: Confidence
     evidence: tuple[FindingEvidence, ...]
     text: str
+    sector_numbers: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

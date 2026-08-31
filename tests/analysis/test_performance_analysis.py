@@ -362,6 +362,7 @@ def test_missing_optional_channels_return_none_metrics_and_warnings() -> None:
 class _FakeProvider(SummaryNarrativeProvider):
     def __init__(self) -> None:
         self.finding_count = 0
+        self.sector_numbers: dict[str, tuple[int, ...]] = {}
 
     def render(
         self,
@@ -371,6 +372,7 @@ class _FakeProvider(SummaryNarrativeProvider):
     ) -> str:
         del headline, quality
         self.finding_count = len(findings)
+        self.sector_numbers = {finding.section_id: finding.sector_numbers for finding in findings}
         return "Provider-rendered narrative."
 
 
@@ -393,6 +395,15 @@ def test_narrative_provider_changes_only_prose() -> None:
 
     assert provider.finding_count == len(summary.findings)
     assert summary.findings
+    assert provider.sector_numbers == {
+        finding.section_id: next(
+            section.sector_numbers
+            for section in sections
+            if section.section_id == finding.section_id
+        )
+        for finding in summary.findings
+    }
+    assert provider.sector_numbers[sections[0].section_id] == (3, 1)
     assert summary.narrative == "Provider-rendered narrative."
     assert explanation.text == "Provider-rendered narrative."
     assert summary.headline == "NOR is 0.400 seconds faster than VER."
@@ -529,6 +540,7 @@ def test_findings_locate_turns_in_timing_sectors(sector_numbers, location) -> No
     )
     assert f"through {corner.label}{' ' + location if location else ''}" in explanation.text
     assert summary.findings[0].section_id == corner.section_id
+    assert summary.findings[0].sector_numbers == sector_numbers
     assert summary.findings[0].time_seconds == corner.magnitude_seconds
     if not sector_numbers:
         assert "Sector" not in explanation.text
