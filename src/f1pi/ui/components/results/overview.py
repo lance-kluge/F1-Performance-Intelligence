@@ -44,7 +44,9 @@ def render_overview(comparison: LapComparison, plot_config: Mapping[str, object]
     _render_dominance_summary(comparison)
     st.caption(
         "Line color shows who gained time locally across each 3% lap window. "
-        "Grey sections were within 0.001 seconds."
+        "Grey sections were within 0.001 seconds. Hover over the track for the driver "
+        "and local gain, plus the whole section gain when available. These are not "
+        "the cumulative lap gap."
     )
     st.plotly_chart(
         track_figure(comparison),

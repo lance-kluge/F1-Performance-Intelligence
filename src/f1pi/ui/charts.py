@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from html import escape
 from typing import cast
 
 import numpy as np
@@ -107,6 +108,7 @@ def track_figure(comparison: LapComparison) -> go.Figure:
     )
     local_delta = _local_delta_seconds(comparison)
     classes = _dominance_classes(local_delta)
+    hover_data = _track_hover_data(comparison, local_delta)
     legend_seen: set[int] = set()
     for start, end, dominance in _dominance_runs(classes):
         color, name = _dominance_style(comparison, dominance)
@@ -122,7 +124,8 @@ def track_figure(comparison: LapComparison) -> go.Figure:
                 legendrank={1: 10, -1: 20, 0: 30}[dominance],
                 showlegend=show_legend,
                 line={"color": color, "width": 5},
-                hoverinfo="skip",
+                customdata=hover_data[start : end + 1],
+                hovertemplate="%{customdata}<extra></extra>",
             )
         )
     if comparison.corners:
@@ -155,7 +158,54 @@ def track_figure(comparison: LapComparison) -> go.Figure:
         )
     figure.update_xaxes(visible=False)
     figure.update_yaxes(visible=False, scaleanchor="x", scaleratio=1)
-    return _base_figure(figure, "Track dominance", None, None, height=520)
+    figure = _base_figure(figure, "Track dominance", None, None, height=520)
+    figure.update_layout(hovermode="closest", hoverdistance=24)
+    return figure
+
+
+def _track_hover_data(
+    comparison: LapComparison, local_delta: NDArray[np.float64]
+) -> tuple[str, ...]:
+    """Keep full-section timing separate from the rolling-window line colors."""
+    telemetry = comparison.telemetry
+    labels = _section_labels(comparison)
+    progress = _lap_progress(comparison)
+    same_driver = comparison.lap_a.driver == comparison.lap_b.driver
+    identities = tuple(
+        escape(f"{lap.driver} lap {lap.lap_number}" if same_driver else lap.driver)
+        for lap in (comparison.lap_a, comparison.lap_b)
+    )
+
+    def advantage(delta: float) -> str:
+        if not np.isfinite(delta):
+            return "Timing unavailable"
+        if abs(delta) <= DOMINANCE_THRESHOLD_SECONDS:
+            return "Within 0.001s"
+        driver = identities[0 if delta > 0 else 1]
+        return f"{driver} by {abs(delta):.{MEASUREMENT_DECIMALS}f}s"
+
+    output: list[str] = []
+    for index, distance in enumerate(telemetry["distance_metres"]):
+        section = next((
+            section for section in comparison.sections
+            if (
+                (distance >= section.start_distance_metres or
+                 distance < section.end_distance_metres)
+                if section.wraps_finish_line else
+                section.start_distance_metres <= distance < section.end_distance_metres
+            )
+        ), None)
+        sector = float(telemetry["sector"].iloc[index])
+        sector_label = f"Sector {sector:.0f}" if np.isfinite(sector) else "Sector unavailable"
+        label = section.label if section is not None else labels[index]
+        detail = (
+            f"{escape(label)} · {sector_label}<br>{progress[index]:.1f}% of lap"
+            f"<br>Local window gain: {advantage(float(local_delta[index]))}"
+        )
+        if section is not None:
+            detail += f"<br>Whole section gain: {advantage(section.delta_seconds)}"
+        output.append(detail)
+    return tuple(output)
 
 
 def delta_figure(comparison: LapComparison) -> go.Figure:

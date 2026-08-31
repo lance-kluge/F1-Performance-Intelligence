@@ -32,7 +32,11 @@ def test_core_figures_preserve_comparison_contract(comparison: LapComparison) ->
     track = track_figure(comparison)
     assert len(track.data) == 5
     assert list(track.data[-1].text) == ["T3", "T9"]
-    assert all(trace.hoverinfo == "skip" for trace in track.data)
+    assert track.layout.hovermode == "closest"
+    assert track.data[1].customdata[0].endswith("Local window gain: NOR by 0.010s")
+    assert "VER by 0.020s" in track.data[2].customdata[1]
+    assert "Sector 2" in track.data[2].customdata[1]
+    assert track.data[0].hoverinfo == "skip"
     assert track.data[-1].customdata is None
     speed = speed_figure(comparison)
     assert len(speed.data) == 2
@@ -112,4 +116,32 @@ def test_corner_losses_follow_the_slower_driver(comparison: LapComparison) -> No
     assert normalized_straight_losses(comparison)[0] == (
         "Straight · Turn 3 → Turn 9",
         0.06,
+    )
+
+
+def test_track_hover_distinguishes_wrapping_section_and_local_gain(comparison) -> None:
+    from dataclasses import replace
+
+    from f1pi.analysis.models import Confidence, PerformanceSectionComparison, SectionKind
+
+    section = PerformanceSectionComparison(
+        section_id="straight:finish", kind=SectionKind.STRAIGHT,
+        label="Start/finish straight", start_distance_metres=800,
+        end_distance_metres=200, wraps_finish_line=True, sector_numbers=(3, 1),
+        delta_seconds=-0.123, advantaged_driver="VER", magnitude_seconds=.123,
+        confidence=Confidence.HIGH,
+    )
+    comparison = replace(comparison, sections=(section,))
+    comparison.telemetry.loc[0, "local_time_delta_seconds"] = 0
+    hover = tuple(value for trace in track_figure(comparison).data
+                  for value in (trace.customdata or ()))
+    assert "Within 0.001s" in hover[0]
+    assert "Whole section gain: VER by 0.123s" in hover[0]
+    assert "Whole section gain: VER by 0.123s" in hover[-1]
+    assert any("40.0% of lap" in value and "Whole section" not in value for value in hover)
+    comparison = replace(comparison, lap_b=replace(comparison.lap_b, driver="NOR"))
+    assert "NOR lap 8 by 0.123s" in track_figure(comparison).data[1].customdata[0]
+    comparison.telemetry.drop(columns=["local_time_delta_seconds"], inplace=True)
+    assert "Local window gain: NOR lap 7 by 0.050s" in (
+        track_figure(comparison).data[1].customdata[0]
     )
