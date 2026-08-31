@@ -145,3 +145,24 @@ def test_track_hover_distinguishes_wrapping_section_and_local_gain(comparison) -
     assert "Local window gain: NOR lap 7 by 0.050s" in (
         track_figure(comparison).data[1].customdata[0]
     )
+
+
+@pytest.mark.parametrize(
+    "delta, expected, color, shares",
+    [
+        (0.001, "Within 0.001s", "#6f6f74", (0, 0, 100)),
+        (0.0011, "Within 0.001s", "#6f6f74", (0, 0, 100)),
+        (-0.0011, "Within 0.001s", "#6f6f74", (0, 0, 100)),
+        (0.00149, "Within 0.001s", "#6f6f74", (0, 0, 100)),
+        (0.00151, "NOR by 0.002s", "#f5f3ed", (100, 0, 0)),
+        (-0.00151, "VER by 0.002s", "#ff4f47", (0, 100, 0)),
+    ],
+)
+def test_track_neutral_threshold_matches_displayed_precision(
+    comparison: LapComparison, delta: float, expected: str, color: str, shares: tuple[int, ...]
+) -> None:
+    comparison.telemetry["local_time_delta_seconds"] = delta
+    track = track_figure(comparison)
+    assert track.data[1].line.color == color
+    assert all(f"Local window gain: {expected}" in value for value in track.data[1].customdata)
+    assert dominance_shares(comparison) == shares

@@ -179,6 +179,7 @@ def _track_hover_data(
     def advantage(delta: float) -> str:
         if not np.isfinite(delta):
             return "Timing unavailable"
+        delta = float(np.round(delta, MEASUREMENT_DECIMALS))
         if abs(delta) <= DOMINANCE_THRESHOLD_SECONDS:
             return "Within 0.001s"
         driver = identities[0 if delta > 0 else 1]
@@ -474,6 +475,7 @@ def _local_delta_seconds(comparison: LapComparison) -> NDArray[np.float64]:
 
 
 def _dominance_classes(local_delta: NDArray[np.float64]) -> NDArray[np.int64]:
+    local_delta = np.round(local_delta, MEASUREMENT_DECIMALS)
     return cast(
         NDArray[np.int64],
         np.where(
