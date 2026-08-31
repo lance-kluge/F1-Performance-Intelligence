@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Protocol
 
 from f1pi.analysis.models import (
@@ -178,14 +179,7 @@ def _finding(
     winner, loser = (
         (identity_a, identity_b) if section.delta_seconds > 0 else (identity_b, identity_a)
     )
-    phase_text = "" if phase is None else f" in the {phase.kind.value} phase"
-    evidence_text = _evidence_text(evidence, direction, kind, lap_a, lap_b)
-    text = (
-        f"{winner} gained "
-        f"{time_seconds:.3f} seconds on {loser} through "
-        f"{section.label}{phase_text}{evidence_text}."
-    )
-    return SummaryFinding(
+    finding = SummaryFinding(
         kind=kind,
         affected_driver=_identity(subject, lap_a.driver == lap_b.driver),
         section_id=section.section_id,
@@ -194,8 +188,28 @@ def _finding(
         time_seconds=time_seconds,
         confidence=_lower_confidence(section.confidence, quality.confidence),
         evidence=evidence,
-        text=text,
+        text="",
+        sector_numbers=section.sector_numbers,
     )
+    phase_text = "" if finding.phase is None else f" in the {finding.phase.value} phase"
+    phase_text = _sector_context(finding.sector_numbers) + phase_text
+    evidence_text = _evidence_text(finding.evidence, direction, kind, lap_a, lap_b)
+    text = (
+        f"{winner} gained "
+        f"{finding.time_seconds:.3f} seconds on {loser} through "
+        f"{finding.section_label}{phase_text}{evidence_text}."
+    )
+    return replace(finding, text=text)
+
+
+def _sector_context(sector_numbers: tuple[int, ...]) -> str:
+    """Locate a section without attributing its full delta to a single sector."""
+    sectors = tuple(dict.fromkeys(sector_numbers))
+    if not sectors:
+        return ""
+    if len(sectors) == 1:
+        return f" (Sector {sectors[0]})"
+    return f" (spanning Sectors {', '.join(str(sector) for sector in sectors)})"
 
 
 def _evidence(

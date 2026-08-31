@@ -89,6 +89,7 @@ def test_official_segmentation_groups_chicane_and_reconciles_every_interval() ->
     assert [turn.turn.number for turn in corners[0].turns] == [1, 2]
     assert corners[1].section_id == "corner:t3"
     assert sections[0].wraps_finish_line
+    assert sections[0].sector_numbers == (3, 1)
     assert sections[0].label.startswith("Start/finish straight")
     assert sum(section.delta_seconds for section in sections) == pytest.approx(0.4)
     assert sum(
@@ -148,6 +149,7 @@ def test_short_start_finish_interval_merges_into_circular_corner_complex() -> No
 
     circular = next(section for section in sections if section.wraps_finish_line)
     assert circular.kind is SectionKind.CORNER_COMPLEX
+    assert circular.sector_numbers == (3, 1)
     assert [turn.turn.number for turn in circular.turns] == [2, 1]
     assert sum(phase.delta_seconds for phase in circular.phases) == pytest.approx(
         circular.delta_seconds
@@ -360,6 +362,7 @@ def test_missing_optional_channels_return_none_metrics_and_warnings() -> None:
 class _FakeProvider(SummaryNarrativeProvider):
     def __init__(self) -> None:
         self.finding_count = 0
+        self.sector_numbers: dict[str, tuple[int, ...]] = {}
 
     def render(
         self,
@@ -369,6 +372,7 @@ class _FakeProvider(SummaryNarrativeProvider):
     ) -> str:
         del headline, quality
         self.finding_count = len(findings)
+        self.sector_numbers = {finding.section_id: finding.sector_numbers for finding in findings}
         return "Provider-rendered narrative."
 
 
@@ -391,6 +395,15 @@ def test_narrative_provider_changes_only_prose() -> None:
 
     assert provider.finding_count == len(summary.findings)
     assert summary.findings
+    assert provider.sector_numbers == {
+        finding.section_id: next(
+            section.sector_numbers
+            for section in sections
+            if section.section_id == finding.section_id
+        )
+        for finding in summary.findings
+    }
+    assert provider.sector_numbers[sections[0].section_id] == (3, 1)
     assert summary.narrative == "Provider-rendered narrative."
     assert explanation.text == "Provider-rendered narrative."
     assert summary.headline == "NOR is 0.400 seconds faster than VER."
@@ -502,3 +515,57 @@ def test_tied_lap_explanation_ranks_local_differences_by_absolute_magnitude() ->
 def test_segmentation_config_rejects_invalid_values(options: dict[str, float]) -> None:
     with pytest.raises(ValueError):
         SegmentationConfig(**options)
+
+
+@pytest.mark.parametrize("sector_numbers, location", [
+    ((2,), "(Sector 2)"),
+    ((1, 2), "(spanning Sectors 1, 2)"),
+    ((3, 1), "(spanning Sectors 3, 1)"),
+    ((), ""),
+])
+def test_findings_locate_turns_in_timing_sectors(sector_numbers, location) -> None:
+    from f1pi.analysis.performance_summary import DeterministicSummaryNarrativeProvider
+
+    lap_a, lap_b = _lap("NOR", 90.0), _lap("VER", 90.4)
+    sections, quality = analyze_performance(
+        _telemetry(), _corners(), lap_a, lap_b, SegmentationConfig()
+    )
+    corner = next(s for s in sections if s.kind is SectionKind.CORNER_COMPLEX)
+    corner = replace(corner, sector_numbers=sector_numbers)
+    summary, explanation = summarize_performance(
+        lap_a, lap_b,
+        (SectorComparison(1, 30, 30.1, .1), SectorComparison(2, 30, 30.1, .1),
+         SectorComparison(3, 30, 30.2, .2)),
+        (corner,), quality, SegmentationConfig(), DeterministicSummaryNarrativeProvider(),
+    )
+    assert f"through {corner.label}{' ' + location if location else ''}" in explanation.text
+    assert summary.findings[0].section_id == corner.section_id
+    assert summary.findings[0].sector_numbers == sector_numbers
+    assert summary.findings[0].time_seconds == corner.magnitude_seconds
+    if not sector_numbers:
+        assert "Sector" not in explanation.text
+
+
+def test_summary_preserves_generated_start_finish_sector_order() -> None:
+    from f1pi.analysis.performance_summary import DeterministicSummaryNarrativeProvider
+
+    lap_a, lap_b = _lap("NOR", 90.0), _lap("VER", 90.4)
+    sections, quality = analyze_performance(
+        _telemetry(), _corners(), lap_a, lap_b, SegmentationConfig()
+    )
+    summary, explanation = summarize_performance(
+        lap_a,
+        lap_b,
+        (
+            SectorComparison(1, 30.0, 30.1, 0.1),
+            SectorComparison(2, 30.0, 30.1, 0.1),
+            SectorComparison(3, 30.0, 30.2, 0.2),
+        ),
+        sections,
+        quality,
+        SegmentationConfig(),
+        DeterministicSummaryNarrativeProvider(),
+    )
+    finding = next(f for f in summary.findings if f.section_id == sections[0].section_id)
+    assert "(spanning Sectors 3, 1)" in finding.text
+    assert finding.text in explanation.text

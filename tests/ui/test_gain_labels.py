@@ -32,7 +32,14 @@ def test_sector_gain_handles_missing_tied_and_same_driver_laps(comparison):
 
 
 @pytest.mark.parametrize("direction", [1, -1])
-def test_narrative_names_gaining_driver_and_preserves_structured_contract(comparison, direction):
+@pytest.mark.parametrize("sector_numbers, location", [
+    ((1,), " (Sector 1)"),
+    ((3, 1), " (spanning Sectors 3, 1)"),
+    ((), ""),
+])
+def test_narrative_names_gaining_driver_and_preserves_structured_contract(
+    comparison, direction, sector_numbers, location
+):
     from f1pi.analysis.models import (
         Confidence,
         FindingKind,
@@ -48,7 +55,7 @@ def test_narrative_names_gaining_driver_and_preserves_structured_contract(compar
     section = PerformanceSectionComparison(
         section_id="straight:test", kind=SectionKind.STRAIGHT, label="Test straight",
         start_distance_metres=100, end_distance_metres=400, wraps_finish_line=False,
-        sector_numbers=(1,), delta_seconds=direction * .123, advantaged_driver=None,
+        sector_numbers=sector_numbers, delta_seconds=direction * .123, advantaged_driver=None,
         magnitude_seconds=.123, confidence=Confidence.HIGH,
     )
     summary, _ = summarize_performance(
@@ -60,5 +67,7 @@ def test_narrative_names_gaining_driver_and_preserves_structured_contract(compar
     assert finding.kind is (FindingKind.LOSS if direction > 0 else FindingKind.GAIN)
     winner, loser = ("NOR", "VER") if direction > 0 else ("VER", "NOR")
     assert finding.text.startswith(f"{winner} gained 0.123 seconds on {loser}")
+    assert finding.sector_numbers == sector_numbers
+    assert f"through Test straight{location}." in finding.text
     assert "lost" not in finding.text
     assert "recovered" not in finding.text

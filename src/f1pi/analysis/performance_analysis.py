@@ -791,13 +791,13 @@ def _sector_numbers(
     telemetry: pd.DataFrame, start: float, end: float, wraps: bool
 ) -> tuple[int, ...]:
     distance = telemetry["distance_metres"].to_numpy(dtype=float)
-    mask = (
-        (distance >= start) | (distance <= end)
-        if wraps
-        else (distance >= start) & (distance <= end)
-    )
-    values = telemetry.loc[mask, "sector"].dropna().astype(int).unique()
-    return tuple(sorted(int(value) for value in values))
+    if wraps:
+        sectors = pd.concat(
+            (telemetry.loc[distance >= start, "sector"], telemetry.loc[distance <= end, "sector"])
+        )
+    else:
+        sectors = telemetry.loc[(distance >= start) & (distance <= end), "sector"]
+    return tuple(int(value) for value in sectors.dropna().astype(int).unique())
 
 
 def _advantaged_driver(delta: float, lap_a: LapSummary, lap_b: LapSummary) -> str | None:

@@ -84,3 +84,7 @@ required speed or timing coverage cannot describe a complete lap.
 
 These are comparative observations, not claims about driver intent or vehicle causality. Weather,
 traffic, tire state, energy deployment, and setup can all contribute to an observed difference.
+
+Narrative findings locate each turn complex or straight in its timing sector. Sections crossing
+sector boundaries list every affected sector (including Sectors 3 and 1 at start/finish); the
+reported section gain or loss remains the whole section's attribution, not a per-sector estimate.
