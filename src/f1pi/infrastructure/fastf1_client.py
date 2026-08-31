@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC
 from pathlib import Path
 
@@ -35,6 +36,7 @@ from f1pi.domain.models import (
     SourceDataset,
     SourceSession,
 )
+from f1pi.infrastructure.logging import log_event
 
 
 class FastF1Client:
@@ -170,7 +172,18 @@ class FastF1Client:
                 )
             try:
                 circuit_info = session.get_circuit_info()
-            except AttributeError:
+            except (AttributeError, KeyError) as error:
+                # FastF1 derives marker distances from the fastest lap's merged
+                # telemetry. Missing columns (for example Date) can break this
+                # optional enrichment even when the session data loaded.
+                log_event(
+                    logging.getLogger(__name__),
+                    logging.WARNING,
+                    "optional circuit metadata unavailable",
+                    session_id=session_id,
+                    error_type=type(error).__name__,
+                    error=str(error),
+                )
                 circuit_info = None
             if circuit_info is not None and not circuit_info.corners.empty:
                 datasets.append(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -241,13 +242,24 @@ def test_client_detaches_frames_for_ingestion(
     assert corners.frame.iloc[0]["Rotation"] == 27.0
 
 
+@pytest.mark.parametrize(
+    "upstream",
+    [
+        AttributeError("'NoneType' object has no attribute 'add_marker_distance'"),
+        KeyError("None of ['Date'] are in the columns"),
+    ],
+    ids=["missing-circuit-info", "missing-reference-lap-telemetry-date"],
+)
 def test_client_omits_unavailable_optional_circuit_metadata(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    upstream: Exception,
 ) -> None:
     session = FakeFastF1Session()
 
     def unavailable_circuit_info() -> None:
-        raise AttributeError("'NoneType' object has no attribute 'add_marker_distance'")
+        raise upstream
 
     monkeypatch.setattr(session, "get_circuit_info", unavailable_circuit_info)
     monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
@@ -255,12 +267,51 @@ def test_client_omits_unavailable_optional_circuit_metadata(
         fastf1_client.fastf1.Cache, "enable_cache", lambda path, **options: None
     )
 
-    result = FastF1Client(tmp_path / "cache").fetch(
-        SessionKey(2022, "Bahrain", "R"), LoadOptions()
+    with caplog.at_level(logging.WARNING, logger="f1pi.infrastructure.fastf1_client"):
+        result = FastF1Client(tmp_path / "cache").fetch(
+            SessionKey(2022, "Bahrain", "R"), LoadOptions()
+        )
+
+    assert all(item.kind is not DatasetKind.CIRCUIT_CORNERS for item in result.datasets)
+    frames = {item.kind: item.frame for item in result.datasets}
+    for kind, expected in (
+        (DatasetKind.RESULTS, session.results),
+        (DatasetKind.LAPS, session.laps),
+        (DatasetKind.CAR_TELEMETRY, session.car_data["16"]),
+        (DatasetKind.POSITION, session.pos_data["16"]),
+    ):
+        pd.testing.assert_frame_equal(frames[kind], expected)
+    warning = next(
+        record for record in caplog.records
+        if record.message == "optional circuit metadata unavailable"
+    )
+    assert warning.context == {
+        "session_id": result.metadata.session_id,
+        "error_type": type(upstream).__name__,
+        "error": str(upstream),
+    }
+
+
+def test_client_does_not_suppress_required_telemetry_errors(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = FakeFastF1Session()
+
+    def unavailable_telemetry() -> object:
+        raise KeyError("Date")
+
+    monkeypatch.setattr(
+        session, "car_data", SimpleNamespace(items=unavailable_telemetry)
+    )
+    monkeypatch.setattr(fastf1_client.fastf1, "get_session", lambda *args: session)
+    monkeypatch.setattr(
+        fastf1_client.fastf1.Cache, "enable_cache", lambda path, **options: None
     )
 
-    assert any(item.kind is DatasetKind.CAR_TELEMETRY for item in result.datasets)
-    assert all(item.kind is not DatasetKind.CIRCUIT_CORNERS for item in result.datasets)
+    with pytest.raises(KeyError, match="Date"):
+        FastF1Client(tmp_path / "cache").fetch(
+            SessionKey(2022, "Bahrain", "R"), LoadOptions()
+        )
 
 
 def test_snapshot_frame_detaches_fastf1_session_behavior() -> None:
