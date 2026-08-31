@@ -12,6 +12,7 @@ from numpy.typing import NDArray
 from plotly.subplots import make_subplots
 
 from f1pi.analysis.models import LapComparison, SectorComparison, StraightComparison
+from f1pi.analysis.telemetry import local_delta_change
 from f1pi.ui.formatting import MEASUREMENT_DECIMALS, MEASUREMENT_TICK_FORMAT
 
 DRIVER_A_COLOR = "#f5f3ed"
@@ -486,11 +487,7 @@ def _local_delta_seconds(comparison: LapComparison) -> NDArray[np.float64]:
     cumulative = cast(
         NDArray[np.float64], telemetry["time_delta_seconds"].to_numpy(dtype=float)
     )
-    half_window = max(1, round(len(cumulative) * FALLBACK_DOMINANCE_WINDOW_FRACTION / 2))
-    indices = np.arange(len(cumulative))
-    before = np.maximum(0, indices - half_window)
-    after = np.minimum(len(cumulative) - 1, indices + half_window)
-    return cumulative[after] - cumulative[before]
+    return local_delta_change(cumulative, FALLBACK_DOMINANCE_WINDOW_FRACTION)
 
 
 def _dominance_classes(local_delta: NDArray[np.float64]) -> NDArray[np.int64]:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -142,7 +143,7 @@ def test_track_hover_distinguishes_wrapping_section_and_local_gain(comparison) -
     comparison = replace(comparison, lap_b=replace(comparison.lap_b, driver="NOR"))
     assert "NOR lap 8 by 0.123s" in track_figure(comparison).data[2].customdata[0]
     comparison.telemetry.drop(columns=["local_time_delta_seconds"], inplace=True)
-    assert "Local window gain: NOR lap 7 by 0.050s" in (
+    assert "Local window gain: NOR lap 7 by 0.230s" in (
         track_figure(comparison).data[2].customdata[0]
     )
 
@@ -229,3 +230,27 @@ def test_track_transitions_have_one_hover_target_per_sample(comparison: LapCompa
     assert samples == list(
         zip(comparison.telemetry.lap_a_x, comparison.telemetry.lap_a_y, strict=True)
     )
+
+
+@pytest.mark.parametrize("samples, expected", [(2, 0.8), (6, 0.16), (101, 0.016)])
+@pytest.mark.parametrize("direction", [-1, 1])
+def test_legacy_hover_uses_full_window_at_both_lap_endpoints(
+    comparison: LapComparison, samples: int, expected: float, direction: int
+) -> None:
+    from dataclasses import replace
+
+    from f1pi.ui.charts import _local_delta_seconds
+
+    telemetry = pd.DataFrame({"time_delta_seconds": 7.0 + direction * np.linspace(0, 0.4, samples)})
+    local = _local_delta_seconds(replace(comparison, telemetry=telemetry))
+    assert local == pytest.approx(np.full(samples, direction * expected))
+
+
+def test_legacy_hover_wraps_uneven_gains_at_finish(comparison: LapComparison) -> None:
+    comparison.telemetry.drop(columns=["local_time_delta_seconds"], inplace=True)
+    figure = track_figure(comparison)
+    hover = [value for trace in figure.data for value in (trace.customdata or ())]
+    expected = ["0.230s", "0.080s", "0.110s", "0.140s", "0.240s", "0.230s"]
+    assert len(hover) == len(expected)
+    for detail, gain in zip(hover, expected, strict=True):
+        assert f"Local window gain: NOR by {gain}" in detail
