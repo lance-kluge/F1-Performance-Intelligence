@@ -10,7 +10,7 @@ import streamlit as st
 from f1pi.analysis.models import LapComparison
 from f1pi.ui.charts import dominance_shares, sector_figure, track_figure
 from f1pi.ui.components.results.chrome import render_result_section
-from f1pi.ui.formatting import format_delta
+from f1pi.ui.gain_labels import largest_sector_gain
 
 
 def render_overview(comparison: LapComparison, plot_config: Mapping[str, object]) -> None:
@@ -24,14 +24,14 @@ def render_overview(comparison: LapComparison, plot_config: Mapping[str, object]
     )
 
     render_result_section(
-        2, "Where the time was lost", "A measured summary of the largest differences."
+        2, "Where the time was gained", "A measured summary of the largest differences."
     )
     st.html(
         f"""
         <article class="f1pi-explanation">
           <p>{escape(comparison.explanation.text)}</p>
-          <div><span>Largest sector loss</span>
-            <strong>{_sector_loss(comparison)}</strong></div>
+          <div><span>Largest sector gain</span>
+            <strong>{escape(largest_sector_gain(comparison))}</strong></div>
           <div><span>Key corner</span>
             <strong>{escape(comparison.explanation.key_corner or "Unavailable")}</strong></div>
         </article>
@@ -74,9 +74,3 @@ def _render_dominance_summary(comparison: LapComparison) -> None:
         </section>
         """
     )
-
-
-def _sector_loss(comparison: LapComparison) -> str:
-    sector = comparison.explanation.largest_loss_sector
-    loss = comparison.explanation.sector_loss_seconds
-    return "Unavailable" if sector is None else f"Sector {sector} · {format_delta(loss)}"

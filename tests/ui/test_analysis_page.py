@@ -37,7 +37,7 @@ def test_guided_analysis_workflow_uses_specific_lap_and_renders_results() -> Non
     assert comparison_state["session_alias"] == "2026:1:q"
     rendered_markup = " ".join(element.proto.body for element in app.get("html"))
     assert "Australian Grand Prix" in rendered_markup
-    assert "Where the time was lost" in rendered_markup
+    assert "Where the time was gained" in rendered_markup
     assert "Track dominance" in rendered_markup
     assert "Turn 3" in rendered_markup
     assert "Current analysis" in rendered_markup

@@ -1,4 +1,4 @@
-"""Corner and straight loss drill-down view."""
+"""Corner and straight gain drill-down view."""
 
 from __future__ import annotations
 
@@ -14,9 +14,9 @@ from f1pi.ui.components.results.chrome import render_result_section
 def render_loss_analysis(
     comparison: LapComparison, plot_config: Mapping[str, object]
 ) -> None:
-    """Render ranked measured losses for the slower lap."""
+    """Render ranked measured gains, naming the driver who gained in each section."""
     render_result_section(
-        7, "Corner losses", "Rank the corner complexes where the slower lap lost time."
+        7, "Corner gains", "Rank the corners where either driver gained time."
     )
     corner_figure = corner_loss_figure(comparison)
     if corner_figure is None:
@@ -30,11 +30,11 @@ def render_loss_analysis(
         )
 
     render_result_section(
-        8, "Straight losses", "Separate straight-line losses from the corner complexes."
+        8, "Straight gains", "Separate straight-line gains from the corner complexes."
     )
     straight_figure = straight_loss_figure(comparison)
     if straight_figure is None:
-        st.info("No meaningful straight loss was measured for the slower lap.")
+        st.info("No meaningful straight gain was measured for either selected lap.")
     else:
         st.caption(
             "Straights shorter than 150.000 metres are treated as part of the "

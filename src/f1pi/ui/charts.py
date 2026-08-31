@@ -12,6 +12,7 @@ from plotly.subplots import make_subplots
 
 from f1pi.analysis.models import LapComparison, SectorComparison, StraightComparison
 from f1pi.ui.formatting import MEASUREMENT_DECIMALS, MEASUREMENT_TICK_FORMAT
+from f1pi.ui.gain_labels import gain_label
 
 DRIVER_A_COLOR = "#f5f3ed"
 DRIVER_B_COLOR = "#ff4f47"
@@ -292,33 +293,11 @@ def inputs_figure(comparison: LapComparison) -> go.Figure:
 
 
 def corner_loss_figure(comparison: LapComparison) -> go.Figure | None:
-    losses = normalized_corner_losses(comparison)
-    if not losses:
-        return None
-    names = [name for name, _ in losses]
-    values = [round(value, MEASUREMENT_DECIMALS) for _, value in losses]
-    figure = go.Figure(
-        go.Bar(
-            x=values,
-            y=names,
-            orientation="h",
-            marker_color=DRIVER_B_COLOR,
-            text=[f"+{value:.{MEASUREMENT_DECIMALS}f}s" for value in values],
-            textposition="outside",
-            hovertemplate=(
-                f"%{{y}}<br>Observed loss %{{x:.{MEASUREMENT_DECIMALS}f}}s"
-                "<extra></extra>"
-            ),
-        )
-    )
-    figure.update_yaxes(autorange="reversed")
-    return _base_figure(
-        figure,
-        "Largest corner losses",
-        "Seconds",
-        None,
-        height=360,
-        x_tickformat=MEASUREMENT_TICK_FORMAT,
+    """Compatibility entrypoint for ranked corner gains by either selected lap."""
+    return _section_gain_figure(
+        comparison,
+        tuple((corner.name, corner.time_delta_seconds) for corner in comparison.corners),
+        "Largest corner gains",
     )
 
 
@@ -334,33 +313,38 @@ def normalized_corner_losses(comparison: LapComparison) -> tuple[tuple[str, floa
 
 
 def straight_loss_figure(comparison: LapComparison) -> go.Figure | None:
-    losses = normalized_straight_losses(comparison)
-    if not losses:
-        return None
-    names = [name for name, _ in losses]
-    values = [round(value, MEASUREMENT_DECIMALS) for _, value in losses]
-    figure = go.Figure(
-        go.Bar(
-            x=values,
-            y=names,
-            orientation="h",
-            marker_color=DRIVER_B_COLOR,
-            text=[f"+{value:.{MEASUREMENT_DECIMALS}f}s" for value in values],
-            textposition="outside",
-            hovertemplate=(
-                f"%{{y}}<br>Observed loss %{{x:.{MEASUREMENT_DECIMALS}f}}s"
-                "<extra></extra>"
-            ),
-        )
+    """Compatibility entrypoint for ranked straight gains by either selected lap."""
+    return _section_gain_figure(
+        comparison,
+        tuple((straight.section_label, straight.time_delta_seconds)
+              for straight in comparison.straights),
+        "Largest straight gains",
     )
+
+
+def _section_gain_figure(
+    comparison: LapComparison, sections: tuple[tuple[str, float], ...], title: str
+) -> go.Figure | None:
+    ranked = sorted(
+        ((name, delta) for name, delta in sections
+         if abs(delta) >= 0.5 * 10**-MEASUREMENT_DECIMALS),
+        key=lambda item: abs(item[1]), reverse=True,
+    )[:8]
+    if not ranked:
+        return None
+    values = [round(abs(delta), MEASUREMENT_DECIMALS) for _, delta in ranked]
+    labels = [gain_label(comparison, delta) for _, delta in ranked]
+    figure = go.Figure(go.Bar(
+        x=values, y=[name for name, _ in ranked], orientation="h",
+        marker_color=[DRIVER_A_COLOR if delta > 0 else DRIVER_B_COLOR for _, delta in ranked],
+        text=labels, textposition="outside", cliponaxis=False, customdata=labels,
+        hovertemplate="%{y}<br>%{customdata}<extra></extra>",
+    ))
     figure.update_yaxes(autorange="reversed")
+    figure.update_xaxes(range=[0, max(values) * 2.4])
     return _base_figure(
-        figure,
-        "Largest straight losses",
-        "Seconds",
-        None,
-        height=360,
-        x_tickformat=MEASUREMENT_TICK_FORMAT,
+        figure, title, "Time gained (seconds)", None,
+        height=360, x_tickformat=MEASUREMENT_TICK_FORMAT,
     )
 
 

@@ -28,7 +28,7 @@ def render_results(session: LoadedSession, comparison: LapComparison) -> None:
         <div class="f1pi-results-guide">
           <span>Explore the comparison</span>
           <p>Start with the outcome, inspect the synchronized traces, then drill into the
-          largest measured losses.</p>
+          largest measured gains.</p>
         </div>
         """
     )
@@ -36,7 +36,7 @@ def render_results(session: LoadedSession, comparison: LapComparison) -> None:
         [
             ":material/overview: Overview",
             ":material/monitoring: Telemetry",
-            ":material/troubleshoot: Loss analysis",
+            ":material/troubleshoot: Gain analysis",
         ]
     )
     with overview:
